@@ -11,6 +11,11 @@ const dbRooms = new Dataput('rooms');
 dbRooms.headers = ['ID', 'Code', 'Privacy', 'Users'];
 dbRooms.autoIncrement = 'ID'
 
+const dbUsers = new Dataput('users');
+dbUsers.headers = ['ID', 'Code', 'Name'];
+dbUsers.autoIncrement = 'ID'
+
+
 // dbRooms.insert({
 // 	ID: Dataput.AI, 
 // 	Code: 'provola',
@@ -18,7 +23,7 @@ dbRooms.autoIncrement = 'ID'
 // 	Users: 0
 // });
 
-// Create room id
+// Create Room, if it already exists, create a new one.
 function createRoom() {
   var result           = '';
   var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -28,15 +33,16 @@ function createRoom() {
   }
 
   let check = dbRooms.query({Code: result})
-  if(check.output.length == 0){ // if it is empty create room
+  if(check.output.length == 0){ // if it does not exist create the room
     dbRooms.insert({
       ID: Dataput.AI, 
       Code: result,
       Privacy: 'Public',
       Users: 0
     });
-    return result
-  } else {
+    console.log('ROOM CREATED ' + result)
+    return result // return the code
+  } else { // if it already exists, repeat
     createRoom()
     console.log('gia esistente')
   }
@@ -54,7 +60,7 @@ app.get('/game/:room', (req, res) => {
   if(query.output.length == 0 || query.output.Users == 6){ // if the room does not exist or it is full
     res.redirect('/')
   }
-  let username = randomWords()
+  let username = randomWords() + Math.floor(Math.random() * 100); // the username of the new user
   
   // Add the user to the list
   dbRooms.updateRow({
@@ -63,21 +69,52 @@ app.get('/game/:room', (req, res) => {
     Users: query.output[0][3] + 1
   });
 
-  res.render('room', { roomCode: req.params.room })
+  // add the user to the list of users in the room
+  dbUsers.insert({
+    ID: Dataput.AI, 
+    Code: req.params.room,
+    Name: username
+  })
+
+  res.render('room', { roomCode: req.params.room, username: username})
 })
 app.get('/create', (req, res) => {
   let roomCode = createRoom()
-  console.log(roomCode)
   res.redirect('/game/' + roomCode)
 })
 
 io.on('connection', socket => {
   socket.on('join-room', (roomId, userId) => {
+
+    console.log(userId + ' JOINED ' + roomId)
     socket.join(roomId)
     socket.to(roomId).broadcast.emit('user-connected', userId)
 
     socket.on('disconnect', () => {
       socket.to(roomId).broadcast.emit('user-disconnected', userId)
+      console.log(userId + ' DISCONNECTED FROM ' + roomId)
+
+      // remove the user from the table of the users 
+      dbUsers.delete({
+        Code: roomId,
+        Name: userId
+      });
+
+      // Remove 1 user from the total of online users
+      let query = dbRooms.query({Code: roomId})
+      dbRooms.updateRow({
+        Code: roomId
+      }, {
+        Users: query.output[0][3] - 1
+      });
+
+      // if there are no more users in the room, delete it
+      if(query.output[0][3] - 1 == 0){
+        dbRooms.delete({
+          Code: roomId
+        });
+      }
+
     })
   })
 })

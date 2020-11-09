@@ -1,12 +1,10 @@
 var socket = io();
 
-id = '_' + Math.random().toString(36).substr(2, 9);
-
 socket.on('user-disconnected', userId => {
-  alert('USER DISCONNECTED ' + userId)
+  console.log('USER DISCONNECTED ' + userId)
 })
 socket.on('user-connected', userId => {
-  alert('USER CONNECTED ' + userId)
+  console.log('USER CONNECTED ' + userId)
 })
 
-socket.emit('join-room', ROOM_ID, id)
+socket.emit('join-room', ROOM_CODE, username)
