@@ -57,7 +57,8 @@ app.get('/', (req, res) => {
 
 app.get('/game/:room', (req, res) => {
   let query = dbRooms.query({Code: req.params.room})
-  if(query.output.length == 0 || query.output.Users == 6){ // if the room does not exist or it is full
+  console.log(query.output[0][3])
+  if(query.output.length == 0 || query.output[0][3] == 6){ // if the room does not exist or it is full
     res.redirect('/')
   }
   let username = randomWords() + Math.floor(Math.random() * 100); // the username of the new user
@@ -76,19 +77,36 @@ app.get('/game/:room', (req, res) => {
     Name: username
   })
 
-  res.render('room', { roomCode: req.params.room, username: username})
+    // get the list of the users
+    let usersNameList = dbUsers.query({Code: req.params.room}).output
+    usersNameList = usersNameList.map(a => a[2]);
+
+  // io.to(req.params.room).broadcast.emit('new-user', usersList)
+  res.render('room', { roomCode: req.params.room, username: username, usersNumber: query.output[0][3] + 1, usersNames: usersNameList})
 })
 app.get('/create', (req, res) => {
   let roomCode = createRoom()
   res.redirect('/game/' + roomCode)
 })
 
+// Socket
+
 io.on('connection', socket => {
   socket.on('join-room', (roomId, userId) => {
 
     console.log(userId + ' JOINED ' + roomId)
     socket.join(roomId)
-    socket.to(roomId).broadcast.emit('user-connected', userId)
+
+    // get the list of the users
+    let usersNumber = dbRooms.query({Code: roomId})
+    let usersNameList = dbUsers.query({Code: roomId}).output
+    usersNameList = usersNameList.map(a => a[2]);
+    let usersList = {
+      number: usersNumber.output[0][3],
+      names: usersNameList
+    }
+
+    socket.to(roomId).broadcast.emit('user-connected', userId, usersList)
 
     socket.on('disconnect', () => {
       socket.to(roomId).broadcast.emit('user-disconnected', userId)
