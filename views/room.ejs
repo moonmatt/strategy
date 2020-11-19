@@ -8,7 +8,9 @@
 
     <script>
         const ROOM_CODE = "<%= roomCode %>"
+        const renderOnlinePlayers = '<%- usersNames %>'.split(",");
         const username = "<%= username %>"
+        const onlineUsersTemp = renderOnlinePlayers.length
     </script>
     <script src="/socket.io/socket.io.js"></script>    
     <script src="/scripts/script.js"></script>
@@ -26,7 +28,7 @@
                     <h1 class="display-4 font-weight-bold"><%= roomCode %></h1>
                     <p class="lead">Your username is <%= username %></p>                    
                     <button type="button" class="btn btn-primary">Start Now!</button>
-                    <button type="button" class="btn btn-danger"><span id="playersNum"><%= usersNumber %></span>/6</button>
+                    <button type="button" class="btn btn-danger"><span id="playersNum"></span>/6</button>
                 </div>
             </div>
             <div id="playersNames">
@@ -34,5 +36,8 @@
             </div>
         </div>
     </div>
+<script>
+    document.getElementById('playersNum').innerHTML = renderOnlinePlayers.length
+</script>    
 </body>
 </html>

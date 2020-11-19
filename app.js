@@ -57,8 +57,8 @@ app.get('/', (req, res) => {
 
 app.get('/game/:room', (req, res) => {
   let query = dbRooms.query({Code: req.params.room})
-  console.log(query.output[0][3])
-  if(query.output.length == 0 || query.output[0][3] == 6){ // if the room does not exist or it is full
+  console.log(query.output.length)
+  if(query.output.length == 0 || query.output.length == 6){ // if the room does not exist or it is full
     res.redirect('/')
   }
   let username = randomWords() + Math.floor(Math.random() * 100); // the username of the new user
@@ -81,8 +81,8 @@ app.get('/game/:room', (req, res) => {
     let usersNameList = dbUsers.query({Code: req.params.room}).output
     usersNameList = usersNameList.map(a => a[2]);
 
-  // io.to(req.params.room).broadcast.emit('new-user', usersList)
-  res.render('room', { roomCode: req.params.room, username: username, usersNumber: query.output[0][3] + 1, usersNames: usersNameList})
+  res.render('room', { roomCode: req.params.room, username: username, usersNames: usersNameList})
+
 })
 app.get('/create', (req, res) => {
   let roomCode = createRoom()
@@ -120,17 +120,19 @@ io.on('connection', socket => {
 
       // Remove 1 user from the total of online users
       let query = dbRooms.query({Code: roomId})
-      dbRooms.updateRow({
-        Code: roomId
-      }, {
-        Users: query.output[0][3] - 1
-      });
-
-      // if there are no more users in the room, delete it
-      if(query.output[0][3] - 1 == 0){
-        dbRooms.delete({
-          Code: roomId
-        });
+      console.log(query)
+      if(query.output != ''){
+        dbRooms.updateRow({
+            Code: roomId
+          }, {
+            Users: query.output[0][3] - 1
+          });
+          // if there are no more users in the room, delete it
+          if(query.output[0][3] -1 == 0){
+            dbRooms.delete({
+                Code: roomId
+              });
+          }
       }
 
     })
