@@ -4,6 +4,7 @@ const server = require('http').Server(app)
 const io = require('socket.io')(server)
 const Dataput = require('dataput');
 const randomWords = require('random-words');
+const { Console } = require('console');
 
 // Database
 
@@ -12,7 +13,7 @@ dbRooms.headers = ['ID', 'Code', 'Privacy', 'Users', 'Admin', 'Started'];
 dbRooms.autoIncrement = 'ID'
 
 const dbUsers = new Dataput('users');
-dbUsers.headers = ['ID', 'Code', 'Name'];
+dbUsers.headers = ['ID', 'Code', 'Name', 'SocketId'];
 dbUsers.autoIncrement = 'ID'
 
 
@@ -105,6 +106,16 @@ app.get('/create', (req, res) => {
 io.on('connection', socket => {
   socket.on('join-room', (roomId, userId) => {
 
+    // Store socket id
+    dbUsers.updateRow({
+      Code: roomId,
+      Name: userId
+    }, {
+      SocketId: socket.id
+    });
+
+    console.log('SOCKETID: ' + socket.id)
+
     let adminQuery = dbRooms.query({Code: roomId, Admin: userId})
     if(adminQuery.output != ''){ // if the user is the admin
       console.log('messaggio mandato')
@@ -137,7 +148,6 @@ io.on('connection', socket => {
 
       // Remove 1 user from the total of online users
       let query = dbRooms.query({Code: roomId})
-      console.log(query)
       if(query.output != ''){
         dbRooms.updateRow({
             Code: roomId
@@ -149,12 +159,12 @@ io.on('connection', socket => {
             dbRooms.delete({
                 Code: roomId
               });
-          } else {
+          } else { // if there are still users
             // UPDATE ADMIN
             let checkQuery = dbRooms.query({Code: roomId})
             console.log(checkQuery)
-            if(checkQuery.output[0].Started){ // if the match started
-              if(checkQuery.output[0].Admin == userId){ // if the user who left is the admin, remove it
+            if(checkQuery.output[0][5]){ // if the match started
+              if(checkQuery.output[0][4] == userId){ // if the user who left is the admin, remove it
                 dbRooms.updateRow({
                   Code: roomId
                 }, {
@@ -162,26 +172,28 @@ io.on('connection', socket => {
                 });
               }
             } else { // if it didn't start
+              let checkQuery = dbRooms.query({Code: roomId})
+              if(checkQuery.output[0][4] == userId){ // if the user who left is the admin, remove it
+                // get the list of the users
+                let updatedUsersNumber = dbRooms.query({Code: roomId})
+                let updatedUsersNameList = dbUsers.query({Code: roomId})
+                updatedUsersNameList = updatedUsersNameList.output.map(a => a[2]);
+                let updatedUsersList = {
+                  number: updatedUsersNumber.output[0][3],
+                  names: updatedUsersNameList,
+                }
 
-              // get the list of the users
-              let updatedUsersNumber = dbRooms.query({Code: roomId})
-              let updatedUsersNameList = dbUsers.query({Code: roomId}).output
-              updatedUsersNameList = updatedUsersNameList.map(a => a[2]);
-              let updatedUsersList = {
-                number: updatedUsersNumber.output[0][3],
-                names: updatedUsersNameList
+                let newAdminSocket = dbUsers.query({Name: updatedUsersList.names[0], Code: roomId}).output[0][3]
+
+                dbRooms.updateRow({
+                  Code: roomId
+                }, {
+                  Admin: updatedUsersList.names[0]
+                });
+
+                io.to(newAdminSocket).emit('you-are-the-admin')
+                console.log('the new admin is: ' + newAdminSocket + ' - ' + updatedUsersList.names[0])
               }
-
-              dbRooms.updateRow({
-                Code: roomId
-              }, {
-                Admin: updatedUsersList.names[0]
-              });
-
-              socket.to(roomId).broadcast.emit('you-are-the-admin')
-              console.log('the new admin is: ' + updatedUsersList.names[0])
-              console.log(dbRooms.query({Code: roomId}))
-
             }
           }
       }
@@ -193,8 +205,16 @@ io.on('connection', socket => {
 // Online matches api
 
 app.get('/matches', (req, res) => {
-  let query = dbRooms.query({Privacy: 'Public'})
-  res.send(query)
+  let query = dbRooms.query({Privacy: 'Public'}).output.reverse()
+  let result = []
+  query.forEach(output => result.push({
+    Code: output[1],
+    Status: output[2],
+    Players: output[3],
+    Admin: output[4],
+    Started: output[5]
+  }))
+  res.send(result)
 })
 
 server.listen(4444)
