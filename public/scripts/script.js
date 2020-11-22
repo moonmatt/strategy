@@ -23,4 +23,8 @@ socket.on('user-connected', (userId, usersList) => {
   document.getElementById('playersNames').innerHTML = onlinePlayers
 })
 
+socket.on('you-are-the-admin', () => {
+  alert('you are the admin')
+})
+
 socket.emit('join-room', ROOM_CODE, username)
