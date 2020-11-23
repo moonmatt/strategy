@@ -10,7 +10,7 @@ function removePlayer(username) {
   })      
 }
 
-let onlinePlayers = renderOnlinePlayers
+let onlinePlayers = []
 
 socket.on('user-disconnected', userId => {
   console.log('USER DISCONNECTED ' + userId)
@@ -27,4 +27,16 @@ socket.on('you-are-the-admin', () => {
   alert('you are the admin')
 })
 
-socket.emit('join-room', ROOM_CODE, username)
+socket.on('you-joined', usersList => {
+  onlinePlayers = usersList.names
+  document.getElementById('playersNum').innerHTML = onlinePlayers.length
+  document.getElementById('playersNames').innerHTML = onlinePlayers
+})
+
+// Show Modal
+$('#joinModal').modal('show')
+
+function joinRoom(){
+  socket.emit('join-room', ROOM_CODE, username) 
+  $('#joinModal').modal('hide')
+}

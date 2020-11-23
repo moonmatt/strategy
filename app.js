@@ -4,10 +4,20 @@ const server = require('http').Server(app)
 const io = require('socket.io')(server)
 const Dataput = require('dataput');
 const randomWords = require('random-words');
-const { Console } = require('console');
+const rateLimit = require("express-rate-limit");
+const cron = require('node-cron');
+
+// Api Anti Spam 
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 5 // limit each IP to 100 requests per windowMs,
+});
+
+app.use("/create/", limiter);
+app.use("/test/", limiter);
+
 
 // Database
-
 const dbRooms = new Dataput('rooms');
 dbRooms.headers = ['ID', 'Code', 'Privacy', 'Users', 'Admin', 'Started'];
 dbRooms.autoIncrement = 'ID'
@@ -52,6 +62,17 @@ function createRoom() {
 app.set('view engine', 'ejs')
 app.use(express.static('public'))
 
+// Remove empty rooms
+// cron.schedule('* * * * *', () => {
+//   console.log(dbRooms.query({
+//     Players: 0
+//   }))
+//   dbRooms.delete({
+//     Players: 0
+//   });
+//   console.log('running a task every minute');
+// });
+
 app.get('/', (req, res) => {
   res.render('homepage')
 })
@@ -64,36 +85,8 @@ app.get('/game/:room', (req, res) => {
     return
   } else {
     let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
-    
-    if(query.output[0][3] == 0){
-      console.log('the admin is: ' + username)
-      // if you created the match you are the admin
-      dbRooms.updateRow({
-        Code: req.params.room
-      }, {
-        Admin: username
-      });
-    }
 
-    // Add the user to the list
-    dbRooms.updateRow({
-      Code: req.params.room
-    }, {
-      Users: query.output[0][3] + 1
-    });
-
-    // add the user to the list of users in the room
-    dbUsers.insert({
-      ID: Dataput.AI, 
-      Code: req.params.room,
-      Name: username
-    })
-
-      // get the list of the users
-      let usersNameList = dbUsers.query({Code: req.params.room}).output
-      usersNameList = usersNameList.map(a => a[2]);
-
-    res.render('room', { roomCode: req.params.room, username: username, usersNames: usersNameList})
+    res.render('room', { roomCode: req.params.room, username: username})
   }
 })
 app.get('/create', (req, res) => {
@@ -106,6 +99,31 @@ app.get('/create', (req, res) => {
 io.on('connection', socket => {
   socket.on('join-room', (roomId, userId) => {
 
+    let query = dbRooms.query({Code: roomId})
+    if(query.output[0][3] == 0){
+      console.log('the admin is: ' + userId)
+      // if you created the match you are the admin
+      dbRooms.updateRow({
+        Code: roomId
+      }, {
+        Admin: userId
+      });
+    }
+
+    // Add the user to the list
+    dbRooms.updateRow({
+      Code: roomId
+    }, {
+      Users: query.output[0][3] + 1
+    });
+
+    // add the user to the list of users in the room
+    dbUsers.insert({
+      ID: Dataput.AI, 
+      Code: roomId,
+      Name: userId
+    })
+
     // Store socket id
     dbUsers.updateRow({
       Code: roomId,
@@ -114,16 +132,6 @@ io.on('connection', socket => {
       SocketId: socket.id
     });
 
-    console.log('SOCKETID: ' + socket.id)
-
-    let adminQuery = dbRooms.query({Code: roomId, Admin: userId})
-    if(adminQuery.output != ''){ // if the user is the admin
-      console.log('messaggio mandato')
-      socket.emit("you-are-the-admin");
-    }
-
-    console.log(userId + ' JOINED ' + roomId)
-    socket.join(roomId)
 
     // get the list of the users
     let usersNumber = dbRooms.query({Code: roomId})
@@ -135,6 +143,19 @@ io.on('connection', socket => {
     }
 
     socket.to(roomId).broadcast.emit('user-connected', userId, usersList)
+
+    socket.emit('you-joined', usersList)
+
+    console.log('SOCKETID: ' + socket.id)
+
+    let adminQuery = dbRooms.query({Code: roomId, Admin: userId})
+    if(adminQuery.output != ''){ // if the user is the admin
+      console.log('messaggio mandato')
+      socket.emit("you-are-the-admin");
+    }
+
+    console.log(userId + ' JOINED ' + roomId)
+    socket.join(roomId)
 
     socket.on('disconnect', () => {
       socket.to(roomId).broadcast.emit('user-disconnected', userId)
@@ -215,6 +236,12 @@ app.get('/matches', (req, res) => {
     Started: output[5]
   }))
   res.send(result)
+})
+
+app.get('/test', (req, res) => {
+  let test = Math.floor(Math.random() * 100)
+  res.send('ciao')
+  console.log(test)
 })
 
 server.listen(4444)

@@ -5,17 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= roomCode %> | Map Heroes</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
-
-    <script>
-        const ROOM_CODE = "<%= roomCode %>"
-        const renderOnlinePlayers = '<%- usersNames %>'.split(",");
-        const username = "<%= username %>"
-        const onlineUsersTemp = renderOnlinePlayers.length
-    </script>
-    <script src="/socket.io/socket.io.js"></script>    
-    <script src="/scripts/script.js"></script>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 </head>
 <body>
+
+    <div class="modal fade bd-example-modal-sm" tabindex="-1" id='joinModal' role="dialog" aria-labelledby="mySmallModalLabel" aria-hidden="false" data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog modal-sm">
+          <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLongTitle">Join <%= roomCode %></h5>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="joinRoom()">Join!</button>
+            <button type="button" class="btn btn-danger" onclick="location.replace('/')">Exit!</button>
+          </div>
+        </div>
+      </div>
+
     <div class="container">
         <nav class="navbar navbar-light bg-light">
             <a class="navbar-brand">How to play?</a>
@@ -32,12 +39,14 @@
                 </div>
             </div>
             <div id="playersNames">
-                <%= usersNames %>
             </div>
         </div>
     </div>
 <script>
-    document.getElementById('playersNum').innerHTML = renderOnlinePlayers.length
-</script>    
+    const ROOM_CODE = "<%= roomCode %>"
+    const username = "<%= username %>"
+</script>
+<script src="/socket.io/socket.io.js"></script>    
+<script src="/scripts/script.js"></script> 
 </body>
 </html>
