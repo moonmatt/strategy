@@ -29,6 +29,7 @@ socket.on('you-are-the-admin', () => {
 
 socket.on('you-joined', usersList => {
   onlinePlayers = usersList.names
+  console.log('SONO ENTRATO')
   document.getElementById('playersNum').innerHTML = onlinePlayers.length
   document.getElementById('playersNames').innerHTML = onlinePlayers
 })

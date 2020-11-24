@@ -6,6 +6,12 @@ const Dataput = require('dataput');
 const randomWords = require('random-words');
 const rateLimit = require("express-rate-limit");
 const cron = require('node-cron');
+const low = require('lowdb')
+const FileSync = require('lowdb/adapters/FileSync');
+const { remove } = require('lodash');
+
+const adapter = new FileSync('storage/db.json')
+const db = low(adapter)
 
 // Api Anti Spam 
 const limiter = rateLimit({
@@ -18,13 +24,17 @@ app.use("/test/", limiter);
 
 
 // Database
-const dbRooms = new Dataput('rooms');
-dbRooms.headers = ['ID', 'Code', 'Privacy', 'Users', 'Admin', 'Started'];
-dbRooms.autoIncrement = 'ID'
 
-const dbUsers = new Dataput('users');
-dbUsers.headers = ['ID', 'Code', 'Name', 'SocketId'];
-dbUsers.autoIncrement = 'ID'
+// Set some defaults (required if your JSON file is empty)
+db.defaults({ rooms: [], users: [] }).write()
+
+// const dbRooms = new Dataput('rooms');
+// dbRooms.headers = ['ID', 'Code', 'Privacy', 'Users', 'Admin', 'Started'];
+// dbRooms.autoIncrement = 'ID'
+
+// const dbUsers = new Dataput('users');
+// dbUsers.headers = ['ID', 'Code', 'Name', 'SocketId'];
+// dbUsers.autoIncrement = 'ID'
 
 
 // dbRooms.insert({
@@ -43,14 +53,18 @@ function createRoom() {
      result += characters.charAt(Math.floor(Math.random() * charactersLength));
   }
 
-  let check = dbRooms.query({Code: result})
-  if(check.output.length == 0){ // if it does not exist create the room
-    dbRooms.insert({
-      ID: Dataput.AI, 
-      Code: result,
-      Privacy: 'Public',
-      Users: 0
-    });
+  let check = db.get('rooms').find({Code: result}).value()
+  console.log(check)
+  if(!check){ // if it does not exist create the room
+    db.get('rooms').push({
+        Code: result,
+        Privacy: 'Public',
+        Players: 0,
+        Admin: '',
+        Privacy: 'Public',
+        Started: 0
+      }).write()
+
     console.log('ROOM CREATED ' + result)
     return result // return the code
   } else { // if it already exists, repeat
@@ -67,9 +81,9 @@ app.use(express.static('public'))
 //   console.log(dbRooms.query({
 //     Players: 0
 //   }))
-//   dbRooms.delete({
-//     Players: 0
-//   });
+  // dbRooms.delete({
+  //   Players: 0
+  // });
 //   console.log('running a task every minute');
 // });
 
@@ -78,9 +92,9 @@ app.get('/', (req, res) => {
 })
 
 app.get('/game/:room', (req, res) => {
-  let query = dbRooms.query({Code: req.params.room})
-  console.log(query.output[0][3])
-  if(query.output[0][3] >= 6){ // if the room does not exist or it is full
+  let query = db.get('rooms').find({"Code": req.params.room}).value()  
+  console.log(query.Users)
+  if(query.Users >= 6){ // if the room is full
     res.redirect('/?The-match-is-full')
     return
   } else {
@@ -99,46 +113,42 @@ app.get('/create', (req, res) => {
 io.on('connection', socket => {
   socket.on('join-room', (roomId, userId) => {
 
-    let query = dbRooms.query({Code: roomId})
-    if(query.output[0][3] == 0){
+    let query = db.get('rooms').find({"Code": roomId}).value()  
+    if(query.Users == 0){ // if there are no users, so you are the first
       console.log('the admin is: ' + userId)
       // if you created the match you are the admin
-      dbRooms.updateRow({
-        Code: roomId
-      }, {
-        Admin: userId
-      });
+      db.get('rooms').find({'Code': roomId}).assign({'Admin': userId}).write();
     }
 
     // Add the user to the list
-    dbRooms.updateRow({
-      Code: roomId
-    }, {
-      Users: query.output[0][3] + 1
-    });
+
+    // 
+    //  TODO, CONSOLE LOG QUERY PLAYERS
+    // 
+    console.log(query)
+    let ActualPlayers = query.Players + 1
+    console.log(query.Players + ' = ' + ActualPlayers)
+    db.get('rooms').find({'Code': roomId}).assign({ Players: ActualPlayers }).write();
 
     // add the user to the list of users in the room
-    dbUsers.insert({
-      ID: Dataput.AI, 
-      Code: roomId,
-      Name: userId
-    })
+    db.get('users').push({
+      'Code': roomId,
+      'Name': userId,
+      'SocketId': '' 
+    }).write()
 
     // Store socket id
-    dbUsers.updateRow({
-      Code: roomId,
-      Name: userId
-    }, {
-      SocketId: socket.id
-    });
-
+    db.get('users').find({'Code': roomId, 'Name': userId}).assign({'SocketId': socket.id}).write();
 
     // get the list of the users
-    let usersNumber = dbRooms.query({Code: roomId})
-    let usersNameList = dbUsers.query({Code: roomId}).output
-    usersNameList = usersNameList.map(a => a[2]);
+    let usersNumber = db.get('rooms').find({"Code": roomId}).value()  
+    let usersNameList = db.get('users').find({"Code": roomId}).value()
+    usersNameList = [ usersNameList ]
+
+    console.log(usersNameList)
+    usersNameList = usersNameList.map(a => a.Name);
     let usersList = {
-      number: usersNumber.output[0][3],
+      number: usersNumber.Players,
       names: usersNameList
     }
 
@@ -148,8 +158,8 @@ io.on('connection', socket => {
 
     console.log('SOCKETID: ' + socket.id)
 
-    let adminQuery = dbRooms.query({Code: roomId, Admin: userId})
-    if(adminQuery.output != ''){ // if the user is the admin
+    let adminQuery = db.get('users').find({"Code": roomId}).value()  
+    if(adminQuery.Admin == userId){ // if the user is the admin
       console.log('messaggio mandato')
       socket.emit("you-are-the-admin");
     }
@@ -162,62 +172,45 @@ io.on('connection', socket => {
       console.log(userId + ' DISCONNECTED FROM ' + roomId)
 
       // remove the user from the table of the users 
-      dbUsers.delete({
-        Code: roomId,
-        Name: userId
-      });
+      db.get('users').remove({ Code: roomId, Name: userId }).write()
 
       // Remove 1 user from the total of online users
-      let query = dbRooms.query({Code: roomId})
-      if(query.output != ''){
-        dbRooms.updateRow({
-            Code: roomId
-          }, {
-            Users: query.output[0][3] - 1
-          });
-          // if there are no more users in the room, delete it
-          if(query.output[0][3] -1 == 0){
-            dbRooms.delete({
-                Code: roomId
-              });
-          } else { // if there are still users
-            // UPDATE ADMIN
-            let checkQuery = dbRooms.query({Code: roomId})
-            console.log(checkQuery)
-            if(checkQuery.output[0][5]){ // if the match started
-              if(checkQuery.output[0][4] == userId){ // if the user who left is the admin, remove it
-                dbRooms.updateRow({
-                  Code: roomId
-                }, {
-                  Admin: ''
-                });
-              }
-            } else { // if it didn't start
-              let checkQuery = dbRooms.query({Code: roomId})
-              if(checkQuery.output[0][4] == userId){ // if the user who left is the admin, remove it
-                // get the list of the users
-                let updatedUsersNumber = dbRooms.query({Code: roomId})
-                let updatedUsersNameList = dbUsers.query({Code: roomId})
-                updatedUsersNameList = updatedUsersNameList.output.map(a => a[2]);
-                let updatedUsersList = {
-                  number: updatedUsersNumber.output[0][3],
-                  names: updatedUsersNameList,
-                }
+      let removePlayerQuery = db.get('rooms').find({'Code': roomId}).value()
+      console.log(removePlayerQuery)
+      db.get('rooms').find({'Code': roomId}).assign({'Players': removePlayerQuery.Players - 1}).write();
+        // if there are no more users in the room, delete it
+        if(removePlayerQuery.Players - 1 == 0){
+          db.get('rooms').remove({ 'Code': roomId }).write()
+        } else { // if there are still users
+          // UPDATE ADMIN
+          let checkQuery = db.get('rooms').find({'Code': roomId}).value()
+          console.log(checkQuery)
+          if(checkQuery.Started){ // if the match started
+            if(checkQuery.Admin == userId){ // if the user who left is the admin, remove it
+              db.get('rooms').find({'Code': roomId}).assign({'Admin': ''}).write();
+            }
+          } else { // if it didn't start
+            let checkQuery1 = db.get('rooms').find({'Code': roomId}).value()
+            if(checkQuery1.Admin == userId){ // if the user who left is the admin, remove it
+              // get the list of the users
+              let updatedUsersNumber = db.get('rooms').find({"Code": roomId}).value()  
+              let updatedUsersNameList = db.get('users').find({"Code": roomId}).value()[0].Name  
+              // updatedUsersNameList = [ updatedUsersNameList ]
+              // updatedUsersNameList = updatedUsersNameList.map(a => a.Name);
+              // let updatedUsersList = {
+              //   number: updatedUsersNumber.Players,
+              //   names: updatedUsersNameList
+              // }
 
-                let newAdminSocket = dbUsers.query({Name: updatedUsersList.names[0], Code: roomId}).output[0][3]
+              let newAdminSocket = db.get('users').find({Name: updatedUsersNameList, Code: roomId}).value().SocketId
 
-                dbRooms.updateRow({
-                  Code: roomId
-                }, {
-                  Admin: updatedUsersList.names[0]
-                });
+              db.get('rooms').find({'Code': roomId}).assign({'Admin': updatedUsersNameList}).write();
 
-                io.to(newAdminSocket).emit('you-are-the-admin')
-                console.log('the new admin is: ' + newAdminSocket + ' - ' + updatedUsersList.names[0])
-              }
+              io.to(newAdminSocket).emit('you-are-the-admin')
+              console.log('the new admin is: ' + newAdminSocket + ' - ' + updatedUsersNameList)
             }
           }
-      }
+        }
 
     })
   })
@@ -244,4 +237,9 @@ app.get('/test', (req, res) => {
   console.log(test)
 })
 
-server.listen(4444)
+server.listen(4444, () => {
+  // console.log('started')
+  // let prova = db.get('rooms').find({Code: 'LTMYI'}).assign({Admin: 'provola'}).write();
+
+  // console.log(prova)
+})
