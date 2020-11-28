@@ -19,8 +19,8 @@ const limiter = rateLimit({
   max: 5 // limit each IP to 100 requests per windowMs,
 });
 
-app.use("/create/", limiter);
-app.use("/test/", limiter);
+// app.use("/create/", limiter);
+// app.use("/test/", limiter);
 
 
 // Database
@@ -54,7 +54,6 @@ function createRoom() {
   }
 
   let check = db.get('rooms').find({Code: result}).value()
-  console.log(check)
   if(!check){ // if it does not exist create the room
     db.get('rooms').push({
         Code: result,
@@ -69,7 +68,6 @@ function createRoom() {
     return result // return the code
   } else { // if it already exists, repeat
     createRoom()
-    console.log('gia esistente')
   }
 }
 
@@ -77,30 +75,32 @@ app.set('view engine', 'ejs')
 app.use(express.static('public'))
 
 // Remove empty rooms
-// cron.schedule('* * * * *', () => {
-//   console.log(dbRooms.query({
-//     Players: 0
-//   }))
-  // dbRooms.delete({
-  //   Players: 0
-  // });
-//   console.log('running a task every minute');
-// });
+cron.schedule('* * * * *', () => {
+  let query = db.get('rooms').filter({Players: 0}).value()
+  query.forEach(result => {
+    db.get('rooms').remove({ Code: result.Code }).write()
+    console.log('eliminato????')
+  })
+  console.log('running a task every minute');
+});
 
 app.get('/', (req, res) => {
   res.render('homepage')
 })
 
 app.get('/game/:room', (req, res) => {
-  let query = db.get('rooms').find({"Code": req.params.room}).value()  
-  console.log(query.Users)
-  if(query.Users >= 6){ // if the room is full
-    res.redirect('/?The-match-is-full')
-    return
-  } else {
-    let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
+  let query = db.get('rooms').find({"Code": req.params.room}).value()
+  if(query){ // if the room exists  
+    if(query.Players >= 6 || query == undefined){ // if the room is full
+      res.redirect('/?The-match-is-full')
+      return
+    } else {
+      let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
 
-    res.render('room', { roomCode: req.params.room, username: username})
+      res.render('room', { roomCode: req.params.room, username: username})
+    }
+  } else {
+    res.redirect('/create')
   }
 })
 app.get('/create', (req, res) => {
@@ -111,23 +111,18 @@ app.get('/create', (req, res) => {
 // Socket
 
 io.on('connection', socket => {
-  socket.on('join-room', (roomId, userId) => {
-
-    let query = db.get('rooms').find({"Code": roomId}).value()  
-    if(query.Users == 0){ // if there are no users, so you are the first
+  socket.on('join-room', (roomId, userId) => { // when you click join game
+    let query = db.get('rooms').find({Code: roomId}).value() 
+    console.log(query) 
+    if(query.Players == 0){ // if there are no users, so you are the first
       console.log('the admin is: ' + userId)
+      socket.emit("you-are-the-admin");
       // if you created the match you are the admin
       db.get('rooms').find({'Code': roomId}).assign({'Admin': userId}).write();
     }
 
     // Add the user to the list
-
-    // 
-    //  TODO, CONSOLE LOG QUERY PLAYERS
-    // 
-    console.log(query)
     let ActualPlayers = query.Players + 1
-    console.log(query.Players + ' = ' + ActualPlayers)
     db.get('rooms').find({'Code': roomId}).assign({ Players: ActualPlayers }).write();
 
     // add the user to the list of users in the room
@@ -137,15 +132,15 @@ io.on('connection', socket => {
       'SocketId': '' 
     }).write()
 
+    console.log('sono arrivato qua')
+
     // Store socket id
     db.get('users').find({'Code': roomId, 'Name': userId}).assign({'SocketId': socket.id}).write();
 
     // get the list of the users
     let usersNumber = db.get('rooms').find({"Code": roomId}).value()  
-    let usersNameList = db.get('users').find({"Code": roomId}).value()
-    usersNameList = [ usersNameList ]
+    let usersNameList = db.get('users').filter({Code: roomId}).value()
 
-    console.log(usersNameList)
     usersNameList = usersNameList.map(a => a.Name);
     let usersList = {
       number: usersNumber.Players,
@@ -153,6 +148,8 @@ io.on('connection', socket => {
     }
 
     socket.to(roomId).broadcast.emit('user-connected', userId, usersList)
+
+    console.log(usersList)
 
     socket.emit('you-joined', usersList)
 
@@ -164,7 +161,6 @@ io.on('connection', socket => {
       socket.emit("you-are-the-admin");
     }
 
-    console.log(userId + ' JOINED ' + roomId)
     socket.join(roomId)
 
     socket.on('disconnect', () => {
@@ -176,15 +172,16 @@ io.on('connection', socket => {
 
       // Remove 1 user from the total of online users
       let removePlayerQuery = db.get('rooms').find({'Code': roomId}).value()
+      console.log('REMOVE')
       console.log(removePlayerQuery)
-      db.get('rooms').find({'Code': roomId}).assign({'Players': removePlayerQuery.Players - 1}).write();
+      let updatedPlayers = removePlayerQuery.Players - 1 
+      db.get('rooms').find({'Code': roomId}).assign({'Players': updatedPlayers}).write();
         // if there are no more users in the room, delete it
-        if(removePlayerQuery.Players - 1 == 0){
+        if(updatedPlayers == 0){
           db.get('rooms').remove({ 'Code': roomId }).write()
         } else { // if there are still users
           // UPDATE ADMIN
           let checkQuery = db.get('rooms').find({'Code': roomId}).value()
-          console.log(checkQuery)
           if(checkQuery.Started){ // if the match started
             if(checkQuery.Admin == userId){ // if the user who left is the admin, remove it
               db.get('rooms').find({'Code': roomId}).assign({'Admin': ''}).write();
@@ -194,7 +191,7 @@ io.on('connection', socket => {
             if(checkQuery1.Admin == userId){ // if the user who left is the admin, remove it
               // get the list of the users
               let updatedUsersNumber = db.get('rooms').find({"Code": roomId}).value()  
-              let updatedUsersNameList = db.get('users').find({"Code": roomId}).value()[0].Name  
+              let updatedUsersNameList = db.get('users').filter({"Code": roomId}).value()[0].Name  
               // updatedUsersNameList = [ updatedUsersNameList ]
               // updatedUsersNameList = updatedUsersNameList.map(a => a.Name);
               // let updatedUsersList = {
@@ -231,10 +228,27 @@ app.get('/matches', (req, res) => {
   res.send(result)
 })
 
-app.get('/test', (req, res) => {
-  let test = Math.floor(Math.random() * 100)
-  res.send('ciao')
-  console.log(test)
+app.get('/debug/:code', (req, res) => {
+  let query = db.get('rooms').find({'Code': req.params.code}).value()
+  res.send(query)
+})
+app.get('/debug/second/:code', (req, res) => {
+  let query = db.get('users').filter({Code: req.params.code}).value()
+  res.send(query)
+})
+app.get('/debug/third/:username', (req, res) => {
+  let query = db.get('users').filter({Name: req.params.username}).value()
+  res.send(query)
+})
+app.get('/prova', (req, res) => {
+  let query = db.get('rooms').value()
+  res.send(query)
+  console.log('arrivato')
+})
+app.get('/delete', (req, res) => {
+  db.get('rooms').remove().write()
+  console.log('cancellato')
+  res.send('cancellato')
 })
 
 server.listen(4444, () => {
