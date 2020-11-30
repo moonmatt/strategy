@@ -10,9 +10,6 @@ const FileSync = require('lowdb/adapters/FileSync');
 const { remove } = require('lodash');
 const bodyParser = require('body-parser');
 const request = require('request');
-const userAgentProtection = require('block-useragent')(['iphone', 'anon', 'ipod', 'mobile', 'ipod'], {
-	options: { methods: '*', dir: '/', action: '/', from: ['CORS'] }
-});
 const fs = require('fs')
 
 app.use(bodyParser.json());
@@ -113,12 +110,20 @@ app.post('/join', (req,res) => {
         return
     }
 
-    let currentPlayers = db.get('rooms').find({'Code': req.body.code}).value().Players
+    let currentPlayers = db.get('rooms').find({'Code': req.body.code}).value()
     console.log('ECCOMI')
     console.log(currentPlayers)
-    if(currentPlayers >= 6){
+    if(!currentPlayers){
         res.redirect('/')
-        console.log('vai affancul')
+        return
+    }
+
+    if(currentPlayers.Players >= 6){
+        res.redirect('/')
+        return
+    }
+    if(currentPlayers.Started == 1){
+        res.redirect('/')
         return
     }
 
@@ -227,7 +232,7 @@ io.on('connection', socket => {
               // get the list of the users
               let updatedUsersNumber = db.get('rooms').find({"Code": roomId}).value()  
               let updatedUsersNameList = db.get('users').filter({"Code": roomId}).value()[0].Name  
-
+ 
               let newAdminSocket = db.get('users').find({Name: updatedUsersNameList, Code: roomId}).value().SocketId
 
               db.get('rooms').find({'Code': roomId}).assign({'Admin': updatedUsersNameList}).write();
@@ -239,7 +244,34 @@ io.on('connection', socket => {
         }
 
     })
+    socket.on('start-match', () => {
+        console.log('Iniziamo MATCH!')
+        let currentAdmin = db.get('rooms').find({Code: roomId}).value().Admin
+        if(currentAdmin == userId){
+            let currentPlayers = db.get('rooms').find({Code: roomId}).value().Players
+            if(currentPlayers >= 2){
+                console.log('OK SI PUO COMINCIARE')
+                db.get('rooms').find({'Code': roomId}).assign({'Started': 1}).write();
+            }
+        }
+    })
+
+    socket.on('kick-player', (player) => {
+        console.log('Kickiamo ' + player)
+        let currentAdmin = db.get('rooms').find({Code: roomId}).value().Admin
+        if(currentAdmin == userId){ // if i am the admin
+            if(player != userId){
+                let playerToKick = db.get('users').find({Code: roomId, Name: player}).value()
+                console.log(playerToKick)
+                if(playerToKick){ // if the player is in the room
+                    io.to(playerToKick.SocketId).emit('you-got-kicked')
+                    console.log('he got kicked')
+                }
+            }
+        }
+    })
   })
+
 })
 
 // Online matches api
@@ -274,5 +306,3 @@ server.listen(4444, () => {
 
   // console.log(prova)
 })
-
-app.use(userAgentProtection);

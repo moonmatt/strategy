@@ -10,7 +10,9 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 </head>
 <body>
-
+<style>
+    .btn {margin-right: 5px}
+</style>
     <div class="container">
         <nav class="navbar navbar-light bg-light">
             <a class="navbar-brand">How to play?</a>
@@ -21,11 +23,13 @@
             <div class="row">
                 <div class="col-6">
                     <h1 class="display-4 font-weight-bold"><%= roomCode %></h1>
-                    <p class="lead">Your username is <%= username %></p>                    
-                    <button type="button" class="btn btn-primary">Start Now!</button>
+                    <p class="lead">Your username is <%= username %></p>  
+                    <div id="alerts"></div>                  
+                    <button type="button" class="btn btn-primary" style="display: none;" id="start">Start Now!</button>
                     <button type="button" class="btn btn-danger"><span id="playersNum"></span>/6</button>
                 </div>
             </div>
+            <hr>
             <div id="playersNames"></div>
         </div>
     </div>
