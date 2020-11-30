@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/moonmatt/strategy#readme",
   "dependencies": {
+    "block-useragent": "^1.0.0",
     "byespam": "^1.0.0-beta",
     "cors": "^2.8.5",
     "dataput": "^1.0.7",
