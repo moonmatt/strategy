@@ -6,7 +6,7 @@
     <title>Strategy</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-    <script src="//www.google.com/recaptcha/api.js?render=6LfeTfEZAAAAAPVwrV9fHB7EkUCjkME47ellaoUx"></script><script>grecaptcha.ready(function(){grecaptcha.execute('6LfeTfEZAAAAAPVwrV9fHB7EkUCjkME47ellaoUx', {action: 'homepage'}).then(cb);});</script>
+    <!-- <script src="//www.google.com/recaptcha/api.js?render=6LfeTfEZAAAAAPVwrV9fHB7EkUCjkME47ellaoUx"></script><script>grecaptcha.ready(function(){grecaptcha.execute('6LfeTfEZAAAAAPVwrV9fHB7EkUCjkME47ellaoUx', {action: 'homepage'}).then(cb);});</script>
 
     <script>
         function cb(token){
@@ -14,7 +14,7 @@
             document.getElementById("joinCaptcha").value = token;
             console.log(document.getElementById("joinCaptcha").value)
         }
-    </script>
+    </script> -->
 
 </head>
 <body>
@@ -22,7 +22,7 @@
         <nav class="navbar navbar-light bg-light">
             <a class="navbar-brand">How to play?</a>
                 <form action="/join" method="POST" class="form-inline">      
-                    <input type="hidden" id='joinCaptcha' name="joinCaptcha">    
+                    <!-- <input type="hidden" id='joinCaptcha' name="joinCaptcha">     -->
                     <input class="form-control mr-sm-2" name="code" type="text" placeholder="Insert Code" aria-label="Insert Code">
                     <input type='submit' class="btn btn-outline-primary my-2 my-sm-0">
                 </form>
@@ -33,7 +33,7 @@
                     <h1 class="display-4 font-weight-bold">Map Heroes</h1>
                     <p class="lead">Map Heroes is a real-time multiplayer strategy online game. <br> Select your nation and fight with other players!</p>                    
                     <form action="/create" method="post" id="prova">
-                        <input type="hidden" id='createCaptcha' name="createCaptcha">
+                        <!-- <input type="hidden" id='createCaptcha' name="createCaptcha"> -->
                         <input type="submit" name="create" value="Create a Match" class="btn btn-primary">
                     </form>
                 </div>

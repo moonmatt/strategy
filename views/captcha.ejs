@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAPTCHA HOMEPAGE</title>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<script>
+    function recaptchaCallback(token){
+        console.log(token)
+        document.getElementById('homeCaptcha').value = token
+        document.getElementById('homeForm').submit()
+    }
+</script>
+<body>
+    <form action="/captcha" method="post" id="homeForm">
+        <div class="g-recaptcha" data-sitekey="6LeBjPMZAAAAALAbM-he-ReEfQOYdXKGRsMPDoxX" data-callback="recaptchaCallback"></div>
+        <input type="hidden" name='homeCaptcha' id="homeCaptcha">
+    </form>
+</body>
+</html>

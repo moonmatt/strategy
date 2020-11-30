@@ -10,17 +10,13 @@ const FileSync = require('lowdb/adapters/FileSync');
 const { remove } = require('lodash');
 const bodyParser = require('body-parser');
 const request = require('request');
-fs = require('fs')
+const fs = require('fs')
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
 const adapter = new FileSync('storage/db.json')
 const db = low(adapter)
-const secretKey = fs.readFileSync('storage/recaptcha.txt', 'utf8').replace(/\s+/g, '')
 
-
-console.log(secretKey)
 // Api Anti Spam 
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
@@ -28,7 +24,7 @@ const limiter = rateLimit({
 });
 
 app.use("/join", limiter);
-// app.use("/test/", limiter);
+app.use("/create", limiter);
 
 
 // Database
@@ -93,53 +89,35 @@ cron.schedule('* * * * *', () => {
 });
 
 app.get('/', (req, res) => {
-  res.render('homepage')
+    res.render('homepage')
 })
 
 app.post('/create', (req, res) => {
     console.log(req.body.createCaptcha)
-
-    if(!req.body.createCaptcha){ // if captcha is empty
-        res.send('errore col captcha')
-        return
-    }
-
-    // const secretKey = "6LfeTfEZAAAAADH48n6bLLwM6whtCmR54lCV4TS1";
-    const verificationURL = "https://www.google.com/recaptcha/api/siteverify?secret=" + secretKey + "&response=" + req.body.createCaptcha + "&remoteip=" + req.connection.remoteAddress;
-    
-    request(verificationURL,function(error,response,body) {
-        body = JSON.parse(body);
-
-        if(body.success !== undefined && !body.success) {
-            res.send('errore col captcha')
-            return
-        }
 
         let roomCode = createRoom()
         let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
         res.render('room', { roomCode: roomCode, username: username})
 
 
-    })
+    // })
 });
 
 app.post('/join', (req,res) => {
 
-    if(!req.body.joinCaptcha){ // if captcha is empty
-        res.send('errore col captcha')
+    if(!req.body.code){
+        res.send('non hai inserito un codice')
         return
     }
 
-    // const secretKey = "6LfeTfEZAAAAADH48n6bLLwM6whtCmR54lCV4TS1";
-    const verificationURL = "https://www.google.com/recaptcha/api/siteverify?secret=" + secretKey + "&response=" + req.body.joinCaptcha + "&remoteip=" + req.connection.remoteAddress;
-    
-    request(verificationURL,function(error,response,body) {
-        body = JSON.parse(body);
-
-        if(body.success !== undefined && !body.success) {
-            res.send('errore col captcha')
-            return
-        }
+    let currentPlayers = db.get('rooms').find({'Code': req.body.code}).value().Players
+    console.log('ECCOMI')
+    console.log(currentPlayers)
+    if(currentPlayers >= 6){
+        res.redirect('/')
+        console.log('vai affancul')
+        return
+    }
 
         console.log('captcha eseguito correttamente')
         // create room
@@ -159,7 +137,7 @@ app.post('/join', (req,res) => {
         }
 
 
-    })
+    // })
 })
 
 // Socket
@@ -246,12 +224,6 @@ io.on('connection', socket => {
               // get the list of the users
               let updatedUsersNumber = db.get('rooms').find({"Code": roomId}).value()  
               let updatedUsersNameList = db.get('users').filter({"Code": roomId}).value()[0].Name  
-              // updatedUsersNameList = [ updatedUsersNameList ]
-              // updatedUsersNameList = updatedUsersNameList.map(a => a.Name);
-              // let updatedUsersList = {
-              //   number: updatedUsersNumber.Players,
-              //   names: updatedUsersNameList
-              // }
 
               let newAdminSocket = db.get('users').find({Name: updatedUsersNameList, Code: roomId}).value().SocketId
 
@@ -291,6 +263,7 @@ app.get('/delete', (req, res) => {
   console.log('cancellato')
   res.send('cancellato')
 })
+
 
 server.listen(4444, () => {
   // console.log('started')
