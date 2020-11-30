@@ -17,9 +17,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const adapter = new FileSync('storage/db.json')
 const db = low(adapter)
 
-const userAgentProtection = require('block-useragent')(['iphone', 'anon', 'ipod', 'mobile', 'ipod'], {
-	options: { methods: '*', dir: '/', action: '/', from: ['CORS'] }
-});
+const userAgentProtection = require('block-useragent')(['*'], options: { attack: true });
 
 // Api Anti Spam 
 const limiter = rateLimit({
