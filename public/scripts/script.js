@@ -34,10 +34,5 @@ socket.on('you-joined', usersList => {
   document.getElementById('playersNames').innerHTML = onlinePlayers
 })
 
-// Show Modal
-$('#joinModal').modal('show')
-
-function joinRoom(){
-  socket.emit('join-room', ROOM_CODE, username) 
-  $('#joinModal').modal('hide')
-}
+// Join Room
+socket.emit('join-room', ROOM_CODE, username) 
