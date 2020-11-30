@@ -10,6 +10,9 @@ const FileSync = require('lowdb/adapters/FileSync');
 const { remove } = require('lodash');
 const bodyParser = require('body-parser');
 const request = require('request');
+const userAgentProtection = require('block-useragent')(['iphone', 'anon', 'ipod', 'mobile', 'ipod'], {
+	options: { methods: '*', dir: '/', action: '/', from: ['CORS'] }
+});
 const fs = require('fs')
 
 app.use(bodyParser.json());
@@ -271,3 +274,5 @@ server.listen(4444, () => {
 
   // console.log(prova)
 })
+
+app.use(userAgentProtection);
