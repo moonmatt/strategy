@@ -94,5 +94,10 @@ socket.on('you-got-kicked', () => {
 socket.on('you-kicked-him', (player) => {
     createAlert('You kicked ' + player, 'success')
 })
+
+socket.on('match-started', (roomId) => {
+    // alert(roomId)
+    window.location.replace("/match/" + roomId);
+})
 // Join Room
 socket.emit('join-room', ROOM_CODE, username) 

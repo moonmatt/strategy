@@ -11,7 +11,8 @@ const { remove } = require('lodash');
 const bodyParser = require('body-parser');
 const request = require('request');
 const fs = require('fs') 
- 
+const axios = require('axios') 
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 const adapter = new FileSync('storage/db.json')
@@ -87,7 +88,7 @@ cron.schedule('* * * * *', () => {
     db.get('rooms').remove({ Code: result.Code }).write()
     console.log('eliminato????')
   })
-  console.log('running a task every minute');
+  // console.log('running a task every minute');
 });
 
 app.get('/', (req, res) => {
@@ -98,15 +99,20 @@ app.post('/create', (req, res) => {
     console.log(req.body.createCaptcha)
 
         let roomCode = createRoom()
-        let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
+        let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new userr
         res.render('room', { roomCode: roomCode, username: username})
-
 
     // })
 });
 
-app.post('/join', (req,res) => {
+app.get('/match/:code', (req,res) => {
+  let roomId = req.params.code
+  res.send('CIAONE')
+})
 
+app.post('/join', (req,res) => {
+  console.log('eccomi qua')
+  console.log(req.body)
     if(!req.body.code){
         res.send('non hai inserito un codice')
         return
@@ -240,7 +246,6 @@ io.on('connection', socket => {
               db.get('rooms').find({'Code': roomId}).assign({'Admin': updatedUsersNameList}).write();
 
               io.to(newAdminSocket).emit('you-are-the-admin')
-              console.log('the new admin is: ' + newAdminSocket + ' - ' + updatedUsersNameList)
             }
           }
         }
@@ -254,6 +259,8 @@ io.on('connection', socket => {
             if(currentPlayers >= 2){
                 console.log('OK SI PUO COMINCIARE')
                 db.get('rooms').find({'Code': roomId}).assign({'Started': 1}).write();
+                db.get('rooms').find({'Code': roomId}).assign({'Admin': ''}).write();
+                socket.in(roomId).emit('match-started', roomId)
             }
         }
     })
