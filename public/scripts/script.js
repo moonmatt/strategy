@@ -1,7 +1,24 @@
+
 var socket = io();
 
 function kickPlayer(player){
     console.log(player)
+}
+
+function createAlert(message, type){
+    let alertsList = document.getElementById('alerts')
+    let node = document.createElement('div')
+    node.innerHTML = message
+    node.className += 'alert alert-dismissible fade show alert-' + type
+    node.role = 'alert'
+    alertsList.appendChild(node)
+    let node1 = document.createElement('button')
+    node1.className = 'close'
+    node.appendChild(node1)
+    let node2 = document.createElement('span')
+    node2.innerHTML = '&times;'
+    node2.setAttribute('data-dismiss', 'alert')
+    node1.appendChild(node2)
 }
 
 function playerButtons(players){
@@ -39,6 +56,7 @@ socket.on('user-disconnected', userId => {
   console.log('USER DISCONNECTED ' + userId)
   removePlayer(userId)
 })
+
 socket.on('user-connected', (userId, usersList) => {
   console.log('USER CONNECTED ' + userId)
   onlinePlayers = usersList.names
@@ -49,7 +67,7 @@ socket.on('user-connected', (userId, usersList) => {
 })
 
 socket.on('you-are-the-admin', () => {
-  alert('you are the admin')
+  createAlert('You are the Admin!', 'success')
   let startButton = document.getElementById('start')
   startButton.style.display = ''
  
@@ -72,6 +90,9 @@ socket.on('you-joined', usersList => {
 socket.on('you-got-kicked', () => {
     console.log('SONO STATO KICKATO :(')
     window.location.replace("/");
+})
+socket.on('you-kicked-him', (player) => {
+    createAlert('You kicked ' + player, 'success')
 })
 // Join Room
 socket.emit('join-room', ROOM_CODE, username) 

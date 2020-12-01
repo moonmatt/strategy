@@ -10,19 +10,19 @@ const FileSync = require('lowdb/adapters/FileSync');
 const { remove } = require('lodash');
 const bodyParser = require('body-parser');
 const request = require('request');
-const fs = require('fs')
-
+const fs = require('fs') 
+ 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 const adapter = new FileSync('storage/db.json')
 const db = low(adapter)
 
-const userAgentProtection = require('block-useragent')(['*'], options: { attack: true });
+const userAgentProtection = require('block-useragent')(['*'], { attack: true });
 
 // Api Anti Spam 
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 5 // limit each IP to 100 requests per windowMs,
+  max: 10 // limit each IP to 100 requests per windowMs,
 });
 
 app.use("/join", limiter);
@@ -131,7 +131,7 @@ app.post('/join', (req,res) => {
 
         console.log('captcha eseguito correttamente')
         // create room
-        let code = req.body.code
+        let code = req.body.code.toUpperCase()
         let query = db.get('rooms').find({"Code": code}).value()
         if(query){ // if the room exists  
           if(query.Players >= 6 || query == undefined){ // if the room is full
@@ -268,6 +268,7 @@ io.on('connection', socket => {
                 if(playerToKick){ // if the player is in the room
                     io.to(playerToKick.SocketId).emit('you-got-kicked')
                     console.log('he got kicked')
+                    socket.emit('you-kicked-him', player)
                 }
             }
         }
