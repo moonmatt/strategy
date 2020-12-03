@@ -93,16 +93,24 @@ cron.schedule('* * * * *', () => {
 
 app.get('/', (req, res) => {
     res.render('homepage')
+    // res.render('spa')
+})
+
+app.post('/fetch', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send({
+    result: true,
+    output: fs.readFileSync('test.ejs', ({prova: 'ciaonee'})).toString()
+  })
 })
 
 app.post('/create', (req, res) => {
-    console.log(req.body.createCaptcha)
-
-        let roomCode = createRoom()
-        let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new userr
-        res.render('room', { roomCode: roomCode, username: username})
-
-    // })
+    let roomCode = createRoom()
+    res.setHeader('Content-Type', 'application/json');
+    res.send({
+      result: true,
+      roomId: roomCode
+    })        
 });
 
 app.get('/match/:code', (req,res) => {
@@ -135,8 +143,6 @@ app.post('/join', (req,res) => {
         return
     }
 
-        console.log('captcha eseguito correttamente')
-        // create room
         let code = req.body.code.toUpperCase()
         let query = db.get('rooms').find({"Code": code}).value()
         if(query){ // if the room exists  
@@ -146,15 +152,21 @@ app.post('/join', (req,res) => {
           } else {
             let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
       
-            res.render('room', { roomCode: code, username: username})
+            // res.render('room', { roomCode: code, username: username})
+            res.setHeader('Content-Type', 'application/json');
+            res.send({
+              result: true,
+              roomId: code,
+              username: username,
+              output: fs.readFileSync('./views/room.ejs').toString()
+            })    
           }
         } else {
           res.redirect('/')
         }
 
 
-    // })
-})
+  })
 
 // Socket
 
@@ -316,4 +328,4 @@ server.listen(4444, () => {
 
   // console.log(prova)
 })
-app.use(userAgentProtection);
+// app.use(userAgentProtection);

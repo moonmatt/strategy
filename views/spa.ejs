@@ -1,0 +1,21 @@
+<body>
+    OK QUESTO E' PRIMA DI MANDARE LA RICHIESTA
+    <button onclick="richiesta()">MANDA RICHIESTA</button>
+</body>
+
+<script>
+function richiesta(){
+    fetch('https://angelicustodi.cf/fetch', {method: 'POST'}).then(async response => {
+    const api = await response.json();
+    console.log(api)
+
+    if(api.result){
+        document.body.innerHTML = api.output
+        console.log('eccomi')
+    } else{
+
+    }
+
+    });
+}
+</script>
