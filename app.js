@@ -11,7 +11,6 @@ const { remove } = require('lodash');
 const bodyParser = require('body-parser');
 const request = require('request');
 const fs = require('fs') 
-const axios = require('axios') 
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -92,17 +91,17 @@ cron.schedule('* * * * *', () => {
 });
 
 app.get('/', (req, res) => {
-    res.render('homepage')
+    res.render('template')
     // res.render('spa')
 })
-
-app.post('/fetch', (req, res) => {
+app.post('/', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.send({
     result: true,
-    output: fs.readFileSync('test.ejs', ({prova: 'ciaonee'})).toString()
-  })
+    output: fs.readFileSync('./views/homepage.ejs').toString(),
+  })   
 })
+
 
 app.post('/create', (req, res) => {
     let roomCode = createRoom()
@@ -130,25 +129,37 @@ app.post('/join', (req,res) => {
     console.log('ECCOMI')
     console.log(currentPlayers)
     if(!currentPlayers){
-        res.redirect('/')
-        return
+      res.setHeader('Content-Type', 'application/json');
+      res.send({
+        result: false,
+        error: 'The room does not exist'
+      })  
     }
 
     if(currentPlayers.Players >= 6){
-        res.redirect('/')
-        return
+      res.setHeader('Content-Type', 'application/json');
+      res.send({
+        result: false,
+        error: 'The match is full'
+      })  
     }
     if(currentPlayers.Started == 1){
-        res.redirect('/')
-        return
+      res.setHeader('Content-Type', 'application/json');
+      res.send({
+        result: false,
+        error: 'The match already started'
+      })  
     }
 
         let code = req.body.code.toUpperCase()
         let query = db.get('rooms').find({"Code": code}).value()
         if(query){ // if the room exists  
           if(query.Players >= 6 || query == undefined){ // if the room is full
-            res.redirect('/?The-match-is-full')
-            return
+            res.setHeader('Content-Type', 'application/json');
+            res.send({
+              result: false,
+              error: 'The room does not exist'
+            })  
           } else {
             let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
       
@@ -158,11 +169,16 @@ app.post('/join', (req,res) => {
               result: true,
               roomId: code,
               username: username,
-              output: fs.readFileSync('./views/room.ejs').toString()
+              output: fs.readFileSync('./views/room.ejs').toString(),
+              css: ['/css/map.css']
             })    
           }
         } else {
-          res.redirect('/')
+          res.setHeader('Content-Type', 'application/json');
+          res.send({
+            result: false,
+            error: 'The room does not exist'
+          })  
         }
 
 
@@ -273,6 +289,8 @@ io.on('connection', socket => {
                 db.get('rooms').find({'Code': roomId}).assign({'Started': 1}).write();
                 db.get('rooms').find({'Code': roomId}).assign({'Admin': ''}).write();
                 socket.in(roomId).emit('match-started', roomId)
+            } else {
+              socket.emit('cannot-start')
             }
         }
     })

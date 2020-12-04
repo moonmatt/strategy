@@ -1,18 +1,9 @@
-html, body {
-    width: 100%;
-}
-
-.map{
-    width: 1000px;
-    height: 500px;
-    /* height: auto; */
-    /* display: flex; */
-}
 .map {
     background-image: url('/img/map.png');
     background-position: center center;
     background-repeat: no-repeat;
-    background-size: cover
+    background-size: cover;
+    width: 1000px;
 }
 .square {
     border: 1px solid rgba(221, 221, 221, 0.774);
