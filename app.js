@@ -99,6 +99,7 @@ app.post('/', (req, res) => {
   res.send({
     result: true,
     output: fs.readFileSync('./views/homepage.ejs').toString(),
+    matches: db.get('rooms').filter({Started: 0}).sortBy('Players').value().reverse().slice(0, 5)
   })   
 })
 
@@ -338,7 +339,10 @@ app.get('/delete', (req, res) => {
   console.log('cancellato')
   res.send('cancellato')
 })
-
+app.get('/chain', (req, res) => {
+  let query = db.get('rooms').filter({Started: 0}).sortBy('Players').value().reverse().slice(0, 5)
+  res.send(query)
+})
 
 server.listen(4444, () => {
   // console.log('started')
