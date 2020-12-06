@@ -15,7 +15,7 @@ const request = require('request');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-const adapter = new FileSync('db.json')
+const adapter = new FileSync('storage/db.json')
 const db = low(adapter)
 
 // Api Anti Spam 
