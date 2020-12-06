@@ -1,13 +1,15 @@
 const express = require('express')
-const app = express()
+const app = express();
 const server = require('http').Server(app)
 const io = require('socket.io')(server)
+const fs = require('fs');
 const randomWords = require('random-words');
+const filter = require('./filter.js')(app);
 const rateLimit = require("express-rate-limit");
 const cron = require('node-cron');
-const low = require('lowdb')
+const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
-const { remove } = require('lodash');
+const remove = require('lodash').remove;
 const bodyParser = require('body-parser');
 const request = require('request');
 const fs = require('fs') 
@@ -440,5 +442,6 @@ server.listen(4444, () => {
   // let prova = db.get('rooms').find({Code: 'LTMYI'}).assign({Admin: 'provola'}).write();
 
   // console.log(prova)
+})
 })
 // app.use(userAgentProtection);
