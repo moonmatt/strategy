@@ -12,11 +12,14 @@ const FileSync = require('lowdb/adapters/FileSync');
 const remove = require('lodash').remove;
 const bodyParser = require('body-parser');
 const request = require('request');
+const fs = require('fs') 
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 const adapter = new FileSync('storage/db.json')
 const db = low(adapter)
+
+const userAgentProtection = require('block-useragent')(['*'], { attack: true });
 
 // Api Anti Spam 
 const limiter = rateLimit({
@@ -440,3 +443,5 @@ server.listen(4444, () => {
 
   // console.log(prova)
 })
+})
+// app.use(userAgentProtection);

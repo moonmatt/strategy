@@ -19,6 +19,7 @@
   "homepage": "https://github.com/moonmatt/strategy#readme",
   "dependencies": {
     "axios": "^0.21.0",
+    "block-useragent": "^1.0.3",
     "byespam": "^1.0.0-beta",
     "cors": "^2.8.5",
     "dataput": "^1.0.7",
