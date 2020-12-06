@@ -1,29 +1,27 @@
 const express = require('express')
-const app = express()
+const app = express();
 const server = require('http').Server(app)
 const io = require('socket.io')(server)
+const fs = require('fs');
 const randomWords = require('random-words');
+const filter = require('./filter.js')(app);
 const rateLimit = require("express-rate-limit");
 const cron = require('node-cron');
-const low = require('lowdb')
+const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
-const { remove } = require('lodash');
+const remove = require('lodash').remove;
 const bodyParser = require('body-parser');
 const request = require('request');
-const userAgentProtection = require('block-useragent')(['iphone', 'anon', 'ipod', 'mobile', 'ipod'], {
-	options: { methods: '*', dir: '/', action: '/', from: ['CORS'] }
-});
-const fs = require('fs')
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-const adapter = new FileSync('storage/db.json')
+const adapter = new FileSync('db.json')
 const db = low(adapter)
 
 // Api Anti Spam 
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 5 // limit each IP to 100 requests per windowMs,
+  max: 10 // limit each IP to 100 requests per windowMs,
 });
 
 app.use("/join", limiter);
@@ -33,7 +31,7 @@ app.use("/create", limiter);
 // Database
 
 // Set some defaults (required if your JSON file is empty)
-db.defaults({ rooms: [], users: [] }).write()
+db.defaults({ rooms: [], users: [],  match: []}).write()
 
 // const dbRooms = new Dataput('rooms');
 // dbRooms.headers = ['ID', 'Code', 'Privacy', 'Users', 'Admin', 'Started'];
@@ -88,67 +86,112 @@ cron.schedule('* * * * *', () => {
     db.get('rooms').remove({ Code: result.Code }).write()
     console.log('eliminato????')
   })
-  console.log('running a task every minute');
+  // console.log('running a task every minute');
 });
 
 app.get('/', (req, res) => {
-    res.render('homepage')
+    res.render('template')
+    // res.render('spa')
+})
+app.post('/', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send({
+    result: true,
+    output: fs.readFileSync('./views/homepage.ejs').toString(),
+    matches: db.get('rooms').filter({Started: 0}).sortBy('Players').value().reverse().slice(0, 5)
+  })   
 })
 
 app.post('/create', (req, res) => {
-    console.log(req.body.createCaptcha)
-
-        let roomCode = createRoom()
-        let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
-        res.render('room', { roomCode: roomCode, username: username})
-
-
-    // })
+    let roomCode = createRoom()
+    res.setHeader('Content-Type', 'application/json');
+    res.send({
+      result: true,
+      roomId: roomCode
+    })        
 });
 
 app.post('/join', (req,res) => {
-
+  console.log('eccomi qua')
+  console.log(req.body)
     if(!req.body.code){
         res.send('non hai inserito un codice')
         return
     }
 
-    let currentPlayers = db.get('rooms').find({'Code': req.body.code}).value().Players
+    let currentPlayers = db.get('rooms').find({'Code': req.body.code}).value()
+    if(!currentPlayers){
+      console.log('ERRORE?')
+      return
+    }
     console.log('ECCOMI')
     console.log(currentPlayers)
-    if(currentPlayers >= 6){
-        res.redirect('/')
-        console.log('vai affancul')
-        return
+    if(!currentPlayers){
+      res.setHeader('Content-Type', 'application/json');
+      res.send({
+        result: false,
+        error: 'The room does not exist'
+      })  
     }
 
-        console.log('captcha eseguito correttamente')
-        // create room
-        let code = req.body.code
+    if(currentPlayers.Players >= 6){
+      res.setHeader('Content-Type', 'application/json');
+      res.send({
+        result: false,
+        error: 'The match is full'
+      })  
+    }
+    if(currentPlayers.Started == 1){
+      res.setHeader('Content-Type', 'application/json');
+      res.send({
+        result: false,
+        error: 'The match already started'
+      })  
+    }
+
+        let code = req.body.code.toUpperCase()
         let query = db.get('rooms').find({"Code": code}).value()
         if(query){ // if the room exists  
           if(query.Players >= 6 || query == undefined){ // if the room is full
-            res.redirect('/?The-match-is-full')
-            return
+            res.setHeader('Content-Type', 'application/json');
+            res.send({
+              result: false,
+              error: 'The room does not exist'
+            })  
           } else {
             let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
       
-            res.render('room', { roomCode: code, username: username})
+            // res.render('room', { roomCode: code, username: username})
+            res.setHeader('Content-Type', 'application/json');
+            res.send({
+              result: true,
+              roomId: code,
+              username: username,
+              output: fs.readFileSync('./views/room.ejs').toString(),
+              css: ['/css/map.css']
+            })    
           }
         } else {
-          res.redirect('/')
+          res.setHeader('Content-Type', 'application/json');
+          res.send({
+            result: false,
+            error: 'The room does not exist'
+          })  
         }
 
 
-    // })
-})
+  })
 
 // Socket
 
 io.on('connection', socket => {
-  socket.on('join-room', (roomId, userId) => { // when you click join game
-    let query = db.get('rooms').find({Code: roomId}).value() 
+  socket.on('join-room', (roomId, userId) => { // when user joins
+    let query = db.get('rooms').find({Code: roomId, Started: 0}).value() 
     console.log(query) 
+    if(!query){
+      console.log('errore')
+      return
+    }
     if(query.Players == 0){ // if there are no users, so you are the first
       console.log('the admin is: ' + userId)
       socket.emit("you-are-the-admin");
@@ -227,19 +270,137 @@ io.on('connection', socket => {
               // get the list of the users
               let updatedUsersNumber = db.get('rooms').find({"Code": roomId}).value()  
               let updatedUsersNameList = db.get('users').filter({"Code": roomId}).value()[0].Name  
-
+ 
               let newAdminSocket = db.get('users').find({Name: updatedUsersNameList, Code: roomId}).value().SocketId
 
               db.get('rooms').find({'Code': roomId}).assign({'Admin': updatedUsersNameList}).write();
 
               io.to(newAdminSocket).emit('you-are-the-admin')
-              console.log('the new admin is: ' + newAdminSocket + ' - ' + updatedUsersNameList)
             }
           }
         }
 
     })
+    socket.on('start-match', () => {
+        console.log('Iniziamo MATCH!')
+        let currentAdmin = db.get('rooms').find({Code: roomId}).value().Admin
+        if(currentAdmin == userId){
+            let currentPlayers = db.get('rooms').find({Code: roomId}).value().Players
+            if(currentPlayers >= 2){
+                console.log('OK SI PUO COMINCIARE')
+                db.get('rooms').find({'Code': roomId}).assign({'Started': 1}).write(); // MAKE THE MATCH SRAERED
+                db.get('rooms').find({'Code': roomId}).assign({'Admin': ''}).write(); // REMOVE THE ADMIN
+                io.sockets.in(roomId).emit('match-started', roomId)
+            } else {
+              socket.emit('cannot-start')
+            }
+        }
+    })
+
+    socket.on('kick-player', (player) => {
+        console.log('Kickiamo ' + player)
+        let currentAdmin = db.get('rooms').find({Code: roomId}).value().Admin
+        if(currentAdmin == userId){ // if i am the admin
+            if(player != userId){
+                let playerToKick = db.get('users').find({Code: roomId, Name: player}).value()
+                console.log(playerToKick)
+                if(playerToKick){ // if the player is in the room
+                    io.to(playerToKick.SocketId).emit('you-got-kicked')
+                    console.log('he got kicked')
+                    socket.emit('you-kicked-him', player)
+                }
+            }
+        }
+    })
+
+    socket.on('move-slot', (destination, userSocketId) => {
+      console.log('MOVE!!! arrivato')
+        const fixedSlot = db.get('match').find({SocketId: userSocketId}).value().Slot
+        const userInfo = db.get('match').find({SocketId: userSocketId}).value()
+        console.log('POSIZIONE: ' + userInfo.Slot + ' DESTINAZIONE: ' + destination)
+        const clearance = (a, b) => {const letters = [...'abcdefghijklmnopqrstuvwxyz'];a = [letters.indexOf(a.substring(0, 1).toLowerCase()), Number(a.substring(1))];b = [letters.indexOf(b.substring(0, 1).toLowerCase()), Number(b.substring(1))];return Math.abs(a[0] - b[0]) <= 1 && Math.abs(a[1] - b[1]) <= 1}
+        if(clearance(userInfo.Slot, destination) && userInfo.Slot != destination){
+          console.log('ATTACCATO')
+          // if you have a movement available
+          if(userInfo.Movement){
+            console.log('YOU HAVE A MOVEMENT')
+            // update movement
+
+            const checkFight = db.get('match').find({Slot: destination}).value()
+            if(checkFight){ // if there is an user in the slot you want to go
+              console.log('THERE IS ANOTHER USER IN ' + destination + ' | ' + checkFight.Player)
+              io.to(checkFight.SocketId).emit('start-fight', userInfo.Player) // send fight message to other user
+              socket.emit('start-fight', checkFight.Player)
+            } else {
+              db.get('match').find({SocketId: userSocketId}).assign({Slot: destination, Movement: 0}).write()
+              socket.emit('you-moved', {actualSlot: fixedSlot, destination: destination})
+            }
+          } else {
+            console.log('you dont have a movement')
+          }
+        }
+    }) 
+
+
+// GAME
+
+app.post('/start', (req, res) => {
+  const code = req.body.code 
+  const player = req.body.player
+  if(!code || !player){ res.send({result: false})}
+  if(db.get('rooms').find({Code: code}).value().Started == 1){
+    // if it started
+    let alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    function getRandomInt(min, max) {
+      min = Math.ceil(min);
+      max = Math.floor(max);
+      return Math.floor(Math.random() * (max - min)) + min; //Il max è escluso e il min è incluso
+    }
+    const initialSlot = alphabet[getRandomInt(0,9)] + '' + getRandomInt(0, 19)
+    const troops = [{Type: 'Infantry', Attack: 50, Defense: 80}, {Type: 'Infantry', Attack: 50, Defense: 80}, {Type: 'Infantry', Attack: 50, Defense: 80}, {Type: 'Infantry', Attack: 50, Defense: 80}]
+    const SocketId = db.get('users').find({Code: code, Name: player}).value().SocketId
+    db.get('match').push({
+      Code: code,
+      Player: player,
+      SocketId: SocketId,
+      Slot: initialSlot,
+      Troops: troops,
+      Tokens: 0,
+      Movement: 1
+    }).write()
+
+    console.log('OK CI SIAMO')
+    res.setHeader('Content-Type', 'application/json');
+    res.send({
+      result: true,
+      output: fs.readFileSync('./views/match.ejs').toString(),
+      initialSlot: initialSlot,
+      troops: troops
+    })  
+    const timer = ms => new Promise(resolve => {const start = Date.now();const delay = setInterval(() => {if(Date.now() - start >= ms){resolve();clearInterval(delay);}})});
+
+    const funzione = () => {
+      console.log('execute every 30 seconds')
+      const actualTokens = db.get('match').find({Code: code, Player: player}).value().Tokens
+      db.get('match').find({Code: code, Player: player}).assign({ Tokens: actualTokens + 5, Movement: 1}).write()      
+      timer(30000).then(funzione);
+    }
+    funzione();
+
+  } else {
+    res.send({result: false})
+  } 
+})
+
+// END GAME   
+
+
+
   })
+
+
+
+
 })
 
 // Online matches api
@@ -263,10 +424,15 @@ app.get('/prova', (req, res) => {
 })
 app.get('/delete', (req, res) => {
   db.get('rooms').remove().write()
+  db.get('users').remove().write()
+  db.get('match').remove().write()
   console.log('cancellato')
   res.send('cancellato')
 })
-
+app.get('/chain/:code', (req, res) => {
+  let query = db.get('match').filter({Code: req.params.code}).value()
+  res.send(query)
+})
 
 server.listen(4444, () => {
   // console.log('started')
@@ -274,5 +440,3 @@ server.listen(4444, () => {
 
   // console.log(prova)
 })
-
-app.use(userAgentProtection);

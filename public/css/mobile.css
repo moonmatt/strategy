@@ -1,0 +1,140 @@
+/* 
+  ##Device = Desktops
+  ##Screen = 1281px to higher resolution desktops
+*/
+
+@media (min-width: 1281px) {
+
+
+  }
+  
+  /* 
+    ##Device = Laptops, Desktops
+    ##Screen = B/w 1025px to 1280px
+  */
+  
+  @media (min-width: 1025px) and (max-width: 1280px) {
+    
+    
+  }
+  
+  /* 
+    ##Device = Tablets, Ipads (portrait)
+    ##Screen = B/w 768px to 1024px
+  */
+  
+  @media (min-width: 768px) and (max-width: 1024px) {
+    
+    /* CSS */
+    :root {
+        --font-big: 6vw;
+        --font-medium: 3vw;
+        --font-small: 2vw;
+        --margin: 10%;
+    }
+    .hero input {
+        padding: 20px 100px 20px 100px;
+    }
+    .hero {
+        padding-bottom: 25px
+    }
+    .row {
+        grid-gap: 20px;
+    }
+    .matches .match .code {
+        padding-left: 20px;
+    }    
+
+  }
+  
+  /* 
+    ##Device = Tablets, Ipads (landscape)
+    ##Screen = B/w 768px to 1024px
+  */
+  
+  @media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+    
+    
+  }
+  
+
+/* 
+    ##Device = Most of the Smartphones Mobiles (Portrait)
+    ##Screen = B/w 320px to 479px
+  */
+  
+  @media (min-width: 480px) and (max-width: 768px) {
+    /* CSS */
+    :root {
+        --font-big: 7vw;
+        --font-medium: 4vw;
+        --font-small: 3vw;
+        --margin: 10%;
+    }
+    .hero input {
+        padding: 20px 10px 20px 10px;
+        margin-left: 5px;
+        margin-right: 5px;
+    }
+    .hero {
+        padding-bottom: 25px
+    }
+    .row {
+        grid-gap: 20px;
+    }
+    .matches .match .code {
+        padding-left: 20px;
+    }
+  }
+
+  /* 
+    ##Device = Most of the Smartphones Mobiles (Portrait)
+    ##Screen = B/w 320px to 479px
+  */
+  
+  @media (min-width: 320px) and (max-width: 480px) {
+    /* CSS */
+    :root {
+        --font-big: 10vw;
+        --font-medium: 6vw;
+        --font-small: 4vw;
+        --margin: 10%;
+    }
+    .hero input {
+        padding: 20px 0 20px 0;
+    }
+    .hero {
+        padding-bottom: 25px
+    }
+    .row {
+        grid-gap: 20px;
+    }
+    .matches .match .code {
+        padding-left: 20px;
+    }
+    
+  }
+
+  @media (max-width: 320px) {
+    /* CSS */
+    :root {
+        --font-big: 7vw;
+        --font-medium: 4vw;
+        --font-small: 3vw;
+        --margin: 10%;
+    }
+    .hero input {
+        padding: 20px 10px 20px 10px;
+        margin-left: 5px;
+        margin-right: 5px;
+    }
+    .hero {
+        padding-bottom: 25px
+    }
+    .row {
+        grid-gap: 20px;
+    }
+    .matches .match .code {
+        padding-left: 20px;
+    } 
+  }

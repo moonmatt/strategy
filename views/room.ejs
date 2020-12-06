@@ -1,39 +1,48 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= roomCode %> | Map Heroes</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-</head>
-<body>
-
-    <div class="container">
-        <nav class="navbar navbar-light bg-light">
-            <a class="navbar-brand">How to play?</a>
-          </nav>
+<!-- WAITING ROOM
+<div class="container">
+    <nav class="navbar navbar-light bg-light">
+        <a class="navbar-brand">How to play?</a>
+    </nav>
 
 
-        <div class="jumbotron bg-dark text-white">
-            <div class="row">
-                <div class="col-6">
-                    <h1 class="display-4 font-weight-bold"><%= roomCode %></h1>
-                    <p class="lead">Your username is <%= username %></p>                    
-                    <button type="button" class="btn btn-primary">Start Now!</button>
-                    <button type="button" class="btn btn-danger"><span id="playersNum"></span>/6</button>
-                </div>
+    <div class="jumbotron bg-dark text-white">
+        <div id="alerts"></div>
+        <div class="row">
+            <div class="col-6">
+                <h1 class="display-4 font-weight-bold"><div id="roomCode"></div></h1>
+                <p class="lead d-inline">Your username is <div id="username"></div></p>  
+                <div id="alerts"></div>                  
+                <button type="button" class="btn btn-primary" style="display: none;" id="start">Start Now!</button>
+                <button type="button" class="btn btn-danger"><span id="playersNum"></span>/6</button>
             </div>
-            <div id="playersNames"></div>
         </div>
+        <hr>
+        <div id="playersNames"></div>
+        <hr>
+        <center>
+            <div class="mapContainer">
+                <div class="map" id="map"></div>
+            </div>
+        </center>
     </div>
-<script>
-    const ROOM_CODE = "<%= roomCode %>"
-    const username = "<%= username %>"
-</script>
-<script src="/socket.io/socket.io.js"></script>    
-<script src="/scripts/script.js"></script> 
-</body>
-</html>
+</div> -->
+<div class="hero">
+    <div id="username"></div>
+    <div class="title" id="adminTitle">
+      Wait for the Match to Start
+    </div>
+    <button class="start hover" id="start" style="display: none;">Start</button>
+</div>
+<div id="alerts">
+
+</div>
+<div class="row">
+    <div class="col1 hover pointer" id="roomCode"></div>
+    <div class="col2 hover pointer" id="playersNum"></div>
+</div>
+<div class="matches" id="playersNames">
+    <div class="title">Players</div>
+
+
+</div>
+<div id="leave" class="leave hover pointer"><i class="gg-arrow-left"></i></div>
