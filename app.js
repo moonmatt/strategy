@@ -32,7 +32,7 @@ app.use("/create", limiter);
 // Database
 
 // Set some defaults (required if your JSON file is empty)
-db.defaults({ rooms: [], users: [] }).write()
+db.defaults({ rooms: [], users: [],  match: []}).write()
 
 // const dbRooms = new Dataput('rooms');
 // dbRooms.headers = ['ID', 'Code', 'Privacy', 'Users', 'Admin', 'Started'];
@@ -103,7 +103,6 @@ app.post('/', (req, res) => {
   })   
 })
 
-
 app.post('/create', (req, res) => {
     let roomCode = createRoom()
     res.setHeader('Content-Type', 'application/json');
@@ -112,11 +111,6 @@ app.post('/create', (req, res) => {
       roomId: roomCode
     })        
 });
-
-app.get('/match/:code', (req,res) => {
-  let roomId = req.params.code
-  res.send('CIAONE')
-})
 
 app.post('/join', (req,res) => {
   console.log('eccomi qua')
@@ -127,6 +121,10 @@ app.post('/join', (req,res) => {
     }
 
     let currentPlayers = db.get('rooms').find({'Code': req.body.code}).value()
+    if(!currentPlayers){
+      console.log('ERRORE?')
+      return
+    }
     console.log('ECCOMI')
     console.log(currentPlayers)
     if(!currentPlayers){
@@ -188,9 +186,13 @@ app.post('/join', (req,res) => {
 // Socket
 
 io.on('connection', socket => {
-  socket.on('join-room', (roomId, userId) => { // when you click join game
-    let query = db.get('rooms').find({Code: roomId}).value() 
+  socket.on('join-room', (roomId, userId) => { // when user joins
+    let query = db.get('rooms').find({Code: roomId, Started: 0}).value() 
     console.log(query) 
+    if(!query){
+      console.log('errore')
+      return
+    }
     if(query.Players == 0){ // if there are no users, so you are the first
       console.log('the admin is: ' + userId)
       socket.emit("you-are-the-admin");
@@ -287,9 +289,9 @@ io.on('connection', socket => {
             let currentPlayers = db.get('rooms').find({Code: roomId}).value().Players
             if(currentPlayers >= 2){
                 console.log('OK SI PUO COMINCIARE')
-                db.get('rooms').find({'Code': roomId}).assign({'Started': 1}).write();
-                db.get('rooms').find({'Code': roomId}).assign({'Admin': ''}).write();
-                socket.in(roomId).emit('match-started', roomId)
+                db.get('rooms').find({'Code': roomId}).assign({'Started': 1}).write(); // MAKE THE MATCH SRAERED
+                db.get('rooms').find({'Code': roomId}).assign({'Admin': ''}).write(); // REMOVE THE ADMIN
+                io.sockets.in(roomId).emit('match-started', roomId)
             } else {
               socket.emit('cannot-start')
             }
@@ -311,7 +313,94 @@ io.on('connection', socket => {
             }
         }
     })
+
+    socket.on('move-slot', (destination, userSocketId) => {
+      console.log('MOVE!!! arrivato')
+        const fixedSlot = db.get('match').find({SocketId: userSocketId}).value().Slot
+        const userInfo = db.get('match').find({SocketId: userSocketId}).value()
+        console.log('POSIZIONE: ' + userInfo.Slot + ' DESTINAZIONE: ' + destination)
+        const clearance = (a, b) => {const letters = [...'abcdefghijklmnopqrstuvwxyz'];a = [letters.indexOf(a.substring(0, 1).toLowerCase()), Number(a.substring(1))];b = [letters.indexOf(b.substring(0, 1).toLowerCase()), Number(b.substring(1))];return Math.abs(a[0] - b[0]) <= 1 && Math.abs(a[1] - b[1]) <= 1}
+        if(clearance(userInfo.Slot, destination) && userInfo.Slot != destination){
+          console.log('ATTACCATO')
+          // if you have a movement available
+          if(userInfo.Movement){
+            console.log('YOU HAVE A MOVEMENT')
+            // update movement
+
+            const checkFight = db.get('match').find({Slot: destination}).value()
+            if(checkFight){ // if there is an user in the slot you want to go
+              console.log('THERE IS ANOTHER USER IN ' + destination + ' | ' + checkFight.Player)
+              io.to(checkFight.SocketId).emit('start-fight', userInfo.Player) // send fight message to other user
+              socket.emit('start-fight', checkFight.Player)
+            } else {
+              db.get('match').find({SocketId: userSocketId}).assign({Slot: destination, Movement: 0}).write()
+              socket.emit('you-moved', {actualSlot: fixedSlot, destination: destination})
+            }
+          } else {
+            console.log('you dont have a movement')
+          }
+        }
+    }) 
+
+
+// GAME
+
+app.post('/start', (req, res) => {
+  const code = req.body.code 
+  const player = req.body.player
+  if(!code || !player){ res.send({result: false})}
+  if(db.get('rooms').find({Code: code}).value().Started == 1){
+    // if it started
+    let alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    function getRandomInt(min, max) {
+      min = Math.ceil(min);
+      max = Math.floor(max);
+      return Math.floor(Math.random() * (max - min)) + min; //Il max è escluso e il min è incluso
+    }
+    const initialSlot = alphabet[getRandomInt(0,9)] + '' + getRandomInt(0, 19)
+    const troops = [{Type: 'Infantry', Attack: 50, Defense: 80}, {Type: 'Infantry', Attack: 50, Defense: 80}, {Type: 'Infantry', Attack: 50, Defense: 80}, {Type: 'Infantry', Attack: 50, Defense: 80}]
+    const SocketId = db.get('users').find({Code: code, Name: player}).value().SocketId
+    db.get('match').push({
+      Code: code,
+      Player: player,
+      SocketId: SocketId,
+      Slot: initialSlot,
+      Troops: troops,
+      Tokens: 0,
+      Movement: 1
+    }).write()
+
+    console.log('OK CI SIAMO')
+    res.setHeader('Content-Type', 'application/json');
+    res.send({
+      result: true,
+      output: fs.readFileSync('./views/match.ejs').toString(),
+      initialSlot: initialSlot,
+      troops: troops
+    })  
+    const timer = ms => new Promise(resolve => {const start = Date.now();const delay = setInterval(() => {if(Date.now() - start >= ms){resolve();clearInterval(delay);}})});
+
+    const funzione = () => {
+      console.log('execute every 30 seconds')
+      const actualTokens = db.get('match').find({Code: code, Player: player}).value().Tokens
+      db.get('match').find({Code: code, Player: player}).assign({ Tokens: actualTokens + 5, Movement: 1}).write()      
+      timer(30000).then(funzione);
+    }
+    funzione();
+
+  } else {
+    res.send({result: false})
+  } 
+})
+
+// END GAME   
+
+
+
   })
+
+
+
 
 })
 
@@ -336,11 +425,13 @@ app.get('/prova', (req, res) => {
 })
 app.get('/delete', (req, res) => {
   db.get('rooms').remove().write()
+  db.get('users').remove().write()
+  db.get('match').remove().write()
   console.log('cancellato')
   res.send('cancellato')
 })
-app.get('/chain', (req, res) => {
-  let query = db.get('rooms').filter({Started: 0}).sortBy('Players').value().reverse().slice(0, 5)
+app.get('/chain/:code', (req, res) => {
+  let query = db.get('match').filter({Code: req.params.code}).value()
   res.send(query)
 })
 

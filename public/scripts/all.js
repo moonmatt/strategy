@@ -1,45 +1,36 @@
-function changeTheme(type){
+// THEME SWITCH
+const getCookie = name => {
+    const string = RegExp(name+"=[^;]+").exec(document.cookie);
+    return decodeURIComponent(string ? string.toString().replace(/^[^=]+./,"") : "");
+}
+
+const themeVars = {
+    // Variable: [light-color, dark-color]
+    secondary: [ '#DB0A40', '#d15175' ],
+    light: [ '#fff', '#000' ],
+    dark: [ '#000', '#fff' ],
+    panel: [ '#fff', '#1F1F1F' ],
+    bg: [ '#fff', '#141414' ],
+    shadow: [ 'rgba(25.000000409781933, 32.00000189244747, 56.000000461936, 0.10000000149011612)', 'rgba(0, 0, 0, 0.06)' ]
+};
+
+const setTheme = index => {
+    const root = document.documentElement.style;
+    Object.keys(themeVars).forEach(key => root.setProperty(`--${key}`, themeVars[key][themeVars[key][Number(index)] ? Number(index) : 0]))
+}
+
+if(!getCookie('theme')) document.cookie = `theme=0`
+setTheme(getCookie('theme'));
+
+document.getElementById('theme').onclick = function(){
+    console.log(1);
     const themeSwitch = document.getElementById('theme');
-    if(type == 'light'){
-        const root = document.documentElement.style
-        root.setProperty('--secondary', '#d15175')
-        root.setProperty('--light', '#000')
-        root.setProperty('--dark', '#fff')
-        root.setProperty('--panel', '#1F1F1F')
-        root.setProperty('--bg', '#141414')
-        root.setProperty('--shadow', 'rgba(207, 209, 221, 0.062)')
-        themeSwitch.innerHTML = '<i class="gg-sun"></i>'
-        themeSwitch.setAttribute('theme', 'light')
-        document.cookie = "themeCookie = light;secure;SameSite=lax";
-    } else {
-        const root = document.documentElement.style
-        root.setProperty('--secondary', '#DB0A40')
-        root.setProperty('--light', '#fff')
-        root.setProperty('--dark', '#000')
-        root.setProperty('--panel', '#fff')
-        root.setProperty('--bg', '#fff')
-        root.setProperty('--shadow', 'rgba(25.000000409781933, 32.00000189244747, 56.000000461936, 0.10000000149011612)')
-        themeSwitch.innerHTML = '<i class="gg-moon"></i>'
-        themeSwitch.setAttribute('theme', 'dark')
-        document.cookie = "themeCookie = dark;secure;SameSite=lax";
-    }
+    themeSwitch.setAttribute('theme', themeSwitch.getAttribute('theme') === 'light' ? 'dark' : 'light');
+    document.cookie = `theme=${getCookie('theme') == 0 ? 1 : 0}`;
+    setTheme(getCookie('theme'));    
 }
 
-function getCookie(cookiename) {
-  // Get name followed by anything except a semicolon
-  var cookiestring=RegExp(cookiename+"=[^;]+").exec(document.cookie);
-  // Return everything after the equal sign, or an empty string if the cookie name not found
-  return decodeURIComponent(!!cookiestring ? cookiestring.toString().replace(/^[^=]+./,"") : "");
-}
-console.log(getCookie('themeCookie'))
-if(getCookie('themeCookie') == 'light'){
-    changeTheme('light')
-} else if(getCookie('themeCookie') == 'dark') {
-    changeTheme('dark')
-}
 
-var allcookies = document.cookie;
-console.log(allcookies)
 
 fetch('https://angelicustodi.cf/', {
     method: 'POST',
@@ -127,33 +118,6 @@ fetch('https://angelicustodi.cf/', {
                         document.querySelector('test123').appendChild(css)
                     })
 
-                    // map script
-
-                    // let map = document.getElementById('map')
-                    // let width = map.offsetWidth
-                    // let xSquares = 20
-                    // let ySquares = 10
-                    // let alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
-
-                    // let y
-                    // for (y = 0; y < ySquares; y++){
-                    //     let i;
-                    //     let row = document.createElement('div')
-                    //     row.className = 'customRow'
-                    //     row.id = 'row' + y
-                    //     map.appendChild(row)
-
-                    //     for (i = 0; i < xSquares; i++) {
-                    //         let currentRow = document.getElementById('row' + y)
-                    //         let square = document.createElement('div')
-                    //         square.id = alphabet[y] + i
-                    //         square.className = 'square'
-                    //         square.style.width = Math.floor(width/xSquares) + 'px'
-                    //         square.style.height = Math.floor(width/xSquares) + 'px'
-                    //         currentRow.appendChild(square)
-                    //     } 
-                    // }
-
                     // game script
 
                     const socket = io();
@@ -190,12 +154,6 @@ fetch('https://angelicustodi.cf/', {
                                 };
                                 node.appendChild(kickButton)
                             }
-                            // if(player == username){ // if it is me
-                            //     // node.className += "btn btn-outline-success btn-sm kickButton  " + player;
-                            //     return
-                            // } else {
-                            //     node.className += "btn btn-outline-danger btn-sm kickButton  " + player;
-                            // }
                         })
                     }
 
@@ -243,6 +201,7 @@ fetch('https://angelicustodi.cf/', {
                         createAlert('There are not enough players!')
                     })
 
+
                     socket.on('you-joined', usersList => {
                         onlinePlayers = usersList.names
                         console.log('SONO ENTRATO')
@@ -255,14 +214,87 @@ fetch('https://angelicustodi.cf/', {
                     socket.on('you-got-kicked', () => {
                         console.log('SONO STATO KICKATO :(')
                         window.location.replace("/");
+                        leave()
                     })
                     socket.on('you-kicked-him', (player) => {
                         createAlert('You kicked ' + player, 'success')
                     })
 
                     socket.on('match-started', (roomId) => {
+                        const TempSocketId = socket.id
+                        console.log(TempSocketId)
                         // alert(roomId)
-                        window.location.replace("/match/" + roomId);
+                        // window.location.replace("/match/" + roomId);
+                        // THE MATCH STARTS
+                        let body = {
+                            code: code,
+                            player: username
+                        }
+                        fetch('https://angelicustodi.cf/start', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(body)
+                        }).then(async response => {
+                            const api = await response.json();
+                            console.log(onlinePlayers)
+                            document.querySelector('main').innerHTML = api.output
+                            document.querySelector('#players').innerHTML = onlinePlayers
+
+                            // map script
+
+                            let map = document.getElementById('map')
+                            let width = map.offsetWidth
+                            let xSquares = 20
+                            let ySquares = 10
+                            let alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+
+                            let y
+                            for (y = 0; y < ySquares; y++){
+                                let i;
+                                let row = document.createElement('div')
+                                row.className = 'customRow'
+                                row.id = 'row' + y
+                                map.appendChild(row)
+
+                                for (i = 0; i < xSquares; i++) {
+                                    let currentRow = document.getElementById('row' + y)
+                                    let square = document.createElement('div')
+                                    const position = alphabet[y] + i
+                                    square.id = position
+                                    square.className = 'square cursor'
+                                    square.style.width = Math.floor(width/xSquares) + 'px'
+                                    square.style.height = Math.floor(width/xSquares) + 'px'
+                                    square.onclick = function() {
+                                        console.log(position + ' | ' + TempSocketId)
+                                        socket.emit('move-slot', position, TempSocketId)
+                                        // console.log(socket.emit('move-slot', position, TempSocketId))
+                                    };
+                                    currentRow.appendChild(square)
+
+                                } 
+                            }
+
+                            // color the slot where you are
+                            document.getElementById(api.initialSlot).style.background = 'rgba(255, 0, 0, .9)'
+                            // show the troops
+                            document.getElementById('troops').innerHTML = api.troops
+                            
+
+
+
+                        })
+                        socket.on('you-moved', (data) => {
+                            console.log(data)
+                            document.getElementById(data.actualSlot).style.background = 'none'
+                            document.getElementById(data.destination).style.background = 'rgba(255, 0, 0, .9)'
+                            console.log('you MOVED from: ' + data.actualSlot + ' TO: ' + data.destination)
+                        })
+                        socket.on('start-fight', (otherUser) => {
+                            alert('STARTED A FIGHT WITH ' + otherUser)
+                            console.log('STARTED A FIGHT WITH ' + otherUser)
+                        })
                     })
                     // Join Room
                     socket.emit('join-room', ROOM_CODE, username)
@@ -312,11 +344,6 @@ fetch('https://angelicustodi.cf/', {
             })
         )
 
-        document.getElementById('theme').onclick = function(){
-            console.log('ECCO CLICKATO')
-            const themeSwitch = document.getElementById('theme');
-            changeTheme(themeSwitch.getAttribute('theme') === 'light' ? 'dark' : 'light');
 
-        }
     }
 })

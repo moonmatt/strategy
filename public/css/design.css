@@ -173,7 +173,7 @@ i.gg-loadbar {
 }
 .matches .match .join {
     background-color: var(--secondary);
-    color: var(--light);
+    color: #fff;
     border-radius: 20px;
     box-shadow:0px 8px 24px var(--shadow);
     font-size: var(--font-small);
