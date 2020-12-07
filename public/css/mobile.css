@@ -15,7 +15,6 @@
   
   @media (min-width: 1025px) and (max-width: 1280px) {
     
-    
   }
   
   /* 
@@ -41,9 +40,6 @@
     .row {
         grid-gap: 20px;
     }
-    .matches .match .code {
-        padding-left: 20px;
-    }    
 
   }
   
@@ -54,6 +50,7 @@
   
   @media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
     
+
     
   }
   

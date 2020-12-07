@@ -12,6 +12,7 @@ const FileSync = require('lowdb/adapters/FileSync');
 const remove = require('lodash').remove;
 const bodyParser = require('body-parser');
 const request = require('request');
+const { Socket } = require('dgram');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
@@ -375,9 +376,7 @@ io.on('connection', socket => {
     })
     socket.on('start-match', () => {
       console.log('Iniziamo MATCH!')
-      let currentAdmin = db.get('rooms').find({
-        Code: roomId
-      }).value().Admin
+      let currentAdmin = db.get('rooms').find({Code: roomId}).value().Admin // get the actual admin
       if (currentAdmin == userId) {
         let currentPlayers = db.get('rooms').find({
           Code: roomId
@@ -425,10 +424,12 @@ io.on('connection', socket => {
     socket.on('move-slot', (destination, userSocketId) => {
       console.log('MOVE!!! arrivato')
       const fixedSlot = db.get('match').find({
-        SocketId: userSocketId
+        SocketId: userSocketId,
+        Code: roomId
       }).value().Slot
       const userInfo = db.get('match').find({
-        SocketId: userSocketId
+        SocketId: userSocketId,
+        Code: roomId
       }).value()
       console.log('POSIZIONE: ' + userInfo.Slot + ' DESTINAZIONE: ' + destination)
       const clearance = (a, b) => {
@@ -439,21 +440,45 @@ io.on('connection', socket => {
       }
       if (clearance(userInfo.Slot, destination) && userInfo.Slot != destination) {
         console.log('ATTACCATO')
-        // if you have a movement available
-        if (userInfo.Movement) {
+        if (userInfo.Movement && userInfo.Fight == 0) { // if you have a movement available
           console.log('YOU HAVE A MOVEMENT')
-          // update movement
+          const checkFight = db.get('match').find({Slot: destination,Code: roomId}).value()
 
-          const checkFight = db.get('match').find({
-            Slot: destination
-          }).value()
-          if (checkFight) { // if there is an user in the slot you want to go
+          console.log(db.get('match').filter({Slot: destination, Code: roomId, Fight:1}).value().length)
+
+
+          if (db.get('match').filter({Slot: destination, Code: roomId, Fight:1}).value().length) { // if there are users fighting
+            
+            console.log('###')
+            console.log('THEY ARE ALREADY FIGHTING')
+            console.log('###')
+            // send message
+          
+          } else if(checkFight){ // there are 2 players fighting
             console.log('THERE IS ANOTHER USER IN ' + destination + ' | ' + checkFight.Player)
-            io.to(checkFight.SocketId).emit('start-fight', userInfo.Player) // send fight message to other user
-            socket.emit('start-fight', checkFight.Player)
+            io.to(checkFight.SocketId).emit('start-fight', {Other: userInfo.Player, Attacking: 0, Slot: destination}) // he got attacked, so he is defending
+            socket.emit('start-fight', {Other: checkFight.Player, Attacking: 1, Slot: destination, Previous: userInfo.Slot}) // you are the attacker
+
+            db.get('match').find({ // update my user
+              SocketId: userSocketId,
+              Code: roomId
+            }).assign({
+              Slot: destination,
+              Movement: 0,
+              Fight: 1
+            }).write()
+
+            db.get('match').find({ // update other user
+              SocketId: checkFight.SocketId,
+              Code: roomId
+            }).assign({
+              Fight: 1
+            }).write()            
+
           } else {
             db.get('match').find({
-              SocketId: userSocketId
+              SocketId: userSocketId,
+              Code: roomId
             }).assign({
               Slot: destination,
               Movement: 0
@@ -464,7 +489,7 @@ io.on('connection', socket => {
             })
           }
         } else {
-          console.log('you dont have a movement')
+          console.log('you dont have a movement or you are in a fight')
         }
       }
     })
@@ -473,8 +498,11 @@ io.on('connection', socket => {
     // GAME
 
     app.post('/start', (req, res) => {
-      const code = req.body.code
+      const code = roomId
       const player = req.body.player
+      // console.log('############################')
+      console.log('ARRIVATO ' + player)
+      // console.log('############################')
       if (!code || !player) {
         res.send({
           result: false
@@ -519,18 +547,12 @@ io.on('connection', socket => {
           SocketId: SocketId,
           Slot: initialSlot,
           Troops: troops,
-          Tokens: 0,
-          Movement: 1
+          Coins: 0,
+          Movement: 1,
+          Fight: 0
         }).write()
 
         console.log('OK CI SIAMO')
-        res.setHeader('Content-Type', 'application/json');
-        res.send({
-          result: true,
-          output: fs.readFileSync('./views/match.ejs').toString(),
-          initialSlot: initialSlot,
-          troops: troops
-        })
         const timer = ms => new Promise(resolve => {
           const start = Date.now();
           const delay = setInterval(() => {
@@ -542,23 +564,39 @@ io.on('connection', socket => {
         });
 
         const funzione = () => {
-          console.log('execute every 30 seconds')
-          if(db.get('match').filter({Code: code}).value().length > 1){ // if there is more than 1 user
-                const actualTokens = db.get('match').find({
+          if(db.get('match').find({Code: code, Player: player}).value()){
+            console.log('30 sec ' + player)
+            console.log(code, player)            
+                const actualCoins = db.get('match').find({
                     Code: code,
                     Player: player
-                }).value().Tokens
+                }).value().Coins
+
                 db.get('match').find({
                     Code: code,
                     Player: player
                 }).assign({
-                    Tokens: actualTokens + 5,
+                    Coins: actualCoins + 5,
                     Movement: 1
                 }).write()
+
                 timer(30000).then(funzione);
-            }
+                io.to(SocketId).emit('update-coins', {Coins: actualCoins + 5})
+          } else {
+            socket.emit('error', 'ciaone questo errore')
+            return
+          }
         }
         funzione();
+
+        res.setHeader('Content-Type', 'application/json');
+        res.send({
+          result: true,
+          output: fs.readFileSync('./views/match.ejs').toString(),
+          initialSlot: initialSlot,
+          troops: troops
+        })
+
 
       } else {
         res.send({

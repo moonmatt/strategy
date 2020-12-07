@@ -122,6 +122,23 @@ const getCookie = name => {
   
             const socket = io();
   
+            // Create alert
+
+            // leave the room
+
+            function leave() {
+              console.log('uscito')
+              socket.disconnect()
+              var head = document.getElementsByTagName('head')[0];
+              var script = document.createElement('script');
+              script.src = './scripts/all.js?cachebuster=' + new Date().getTime();
+              head.appendChild(script);
+            }
+            document.getElementById('leave').addEventListener('click', function() {
+              leave()
+            })
+
+
             function createAlert(message, type) {
               let alertsList = document.getElementById('alerts')
               let node = document.createElement('div')
@@ -170,6 +187,8 @@ const getCookie = name => {
   
             let onlinePlayers = []
   
+            // Manage users joining and disconnecting
+
             socket.on('user-disconnected', userId => {
               console.log('USER DISCONNECTED ' + userId)
               removePlayer(userId)
@@ -184,6 +203,8 @@ const getCookie = name => {
   
             })
   
+            // You're the admin
+
             socket.on('you-are-the-admin', () => {
               createAlert('You are the Admin!', 'success')
               document.getElementById('adminTitle').innerHTML = 'You are the Admin'
@@ -197,20 +218,23 @@ const getCookie = name => {
   
             })
   
+            // TODO ALERTS
+            
             socket.on('cannot-start', (roomId) => {
               createAlert('There are not enough players!')
             })
   
-  
+            // When you join
+
             socket.on('you-joined', usersList => {
               onlinePlayers = usersList.names
               console.log('SONO ENTRATO')
               document.getElementById('playersNum').innerHTML = onlinePlayers.length + '/6'
               playerButtons(onlinePlayers)
-              // document.getElementById(username).classList.remove('btn-outline-danger');
-              // document.getElementById(username).className += ' btn-outline-success';
             })
   
+            // Kick
+
             socket.on('you-got-kicked', () => {
               console.log('SONO STATO KICKATO :(')
               window.location.replace("/");
@@ -220,11 +244,8 @@ const getCookie = name => {
               createAlert('You kicked ' + player, 'success')
             })
   
-            socket.on('match-started', (roomId) => {
-              const TempSocketId = socket.id
-              console.log(TempSocketId)
-              // alert(roomId)
-              // window.location.replace("/match/" + roomId);
+            socket.on('match-started', (roomId) => { // start the match
+              console.log('MATCH INIZIATO 123')
               // THE MATCH STARTS
               let body = {
                 code: code,
@@ -240,7 +261,9 @@ const getCookie = name => {
                 const api = await response.json();
                 console.log(onlinePlayers)
                 document.querySelector('main').innerHTML = api.output
-                document.querySelector('#players').innerHTML = onlinePlayers
+                document.querySelector('#playersNames').innerHTML = onlinePlayers
+                document.querySelector('#playersNum').innerHTML = onlinePlayers.length + '/6'
+                document.querySelector('#shop').innerHTML = api.coins + ' | Shop'
   
                 // map script
   
@@ -267,8 +290,8 @@ const getCookie = name => {
                     square.style.width = Math.floor(width / xSquares) + 'px'
                     square.style.height = Math.floor(width / xSquares) + 'px'
                     square.onclick = function() {
-                      console.log(position + ' | ' + TempSocketId)
-                      socket.emit('move-slot', position, TempSocketId)
+                      console.log(position + ' | ' + socket.id)
+                      socket.emit('move-slot', position, socket.id)
                       // console.log(socket.emit('move-slot', position, TempSocketId))
                     };
                     currentRow.appendChild(square)
@@ -279,30 +302,58 @@ const getCookie = name => {
                 // color the slot where you are
                 document.getElementById(api.initialSlot).style.background = 'rgba(255, 0, 0, .9)'
                 // show the troops
-                document.getElementById('troops').innerHTML = api.troops
-  
-  
-  
-  
+                const troopsDom = document.getElementById('troops')
+                api.troops.forEach(troop => {
+                  const troopDom = document.createElement('div')
+                  troopDom.className += 'hover troop'
+                  troopDom.innerHTML = troop.Type + ' | ' + troop.Attack + ' | ' + troop.Defense
+                  troopsDom.appendChild(troopDom)
+                })
               })
+
               socket.on('you-moved', (data) => {
                 console.log(data)
                 document.getElementById(data.actualSlot).style.background = 'none'
                 document.getElementById(data.destination).style.background = 'rgba(255, 0, 0, .9)'
                 console.log('you MOVED from: ' + data.actualSlot + ' TO: ' + data.destination)
               })
-              socket.on('start-fight', (otherUser) => {
-                alert('STARTED A FIGHT WITH ' + otherUser)
-                console.log('STARTED A FIGHT WITH ' + otherUser)
+
+              socket.on('start-fight', (data) => {
+                console.log('FIGHT')
+                if(data.Attacking){ // if you are the one attacking
+                  document.getElementById(data.Previous).style.background = 'none'
+                  document.getElementById(data.Slot).style.background = 'rgba(0, 0, 255, .9)'
+                  createAlert('You attacked ' + data.Other)
+                } else {
+                  document.getElementById(data.Slot).style.background = 'rgba(0, 0, 255, .9)'
+                  createAlert('You got attacked by ' + data.Other)
+                }
               })
+
+
+              socket.on('update-coins', (data) => {
+                console.log('UPDATE COINS')
+                document.getElementById('shop').innerHTML = data.Coins + ' | Shop'
+              })
+
+
               socket.on('match-ended', () => {
-                alert('MATCH ENDED, YOU WON')
+                leave()
                 console.log('MATCH ENDED YOU WON')
               })
             })
             // Join Room
             socket.emit('join-room', ROOM_CODE, username)
   
+            // ERROR
+
+            socket.on('error', (message) => {
+              console.log('!!!ERROR!!! ' + message)
+              window.location.replace("/?ERRORE");
+            })
+
+            // copy Code
+
             function setClipboard(value) {
               var tempInput = document.createElement("input");
               tempInput.style = "position: absolute; left: -1000px; top: -1000px";
@@ -317,18 +368,7 @@ const getCookie = name => {
               setClipboard(api.roomId)
               createAlert('You have copied the Code!')
             })
-  
-            function leave() {
-              console.log('uscito')
-              socket.disconnect()
-              var head = document.getElementsByTagName('head')[0];
-              var script = document.createElement('script');
-              script.src = './scripts/all.js?cachebuster=' + new Date().getTime();
-              head.appendChild(script);
-            }
-            document.getElementById('leave').addEventListener('click', function() {
-              leave()
-            })
+
           } else {
             console.log(api.error)
           }

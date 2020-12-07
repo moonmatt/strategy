@@ -227,3 +227,30 @@ i.gg-loadbar {
 .footer .questions {
     text-align: right;
 }
+
+/* TROOPS */
+.troops {
+    background-color: var(--panel);
+    color: var(--dark);
+    border-radius: 20px;
+    box-shadow:0px 8px 24px var(--shadow);
+    padding: 20px 0 20px 0;
+    margin-bottom: 10px;
+}
+.troop {
+    background-color: var(--panel);
+    color: var(--dark);
+    border-radius: 20px;
+    box-shadow:0px 8px 24px var(--shadow);
+    padding: 20px 0 20px 20px;
+    margin-bottom: 10px;
+}
+.matchGrid {
+    display: grid;
+    grid-template-columns: 70% auto;
+    grid-column-gap: 15px;
+}
+.mapContainer {
+    overflow-x: scroll;
+    width: 100%;
+}
