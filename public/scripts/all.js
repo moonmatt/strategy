@@ -41,7 +41,7 @@ const getCookie = name => {
     const api = await response.json();
   
     if (api.result) {
-      document.querySelector('main').innerHTML = api.output
+      document.getElementById('main').innerHTML = api.output
       console.log(api.matches)
       api.matches.forEach(match => { // top matches
         const matchesDom = document.getElementById('matches')
@@ -104,7 +104,7 @@ const getCookie = name => {
   
           if (api.result) {
   
-            document.querySelector('main').innerHTML = api.output
+            document.getElementById('main').innerHTML = api.output
             transition.perform()
             document.getElementById('roomCode').innerHTML = api.roomId
             document.getElementById('username').innerHTML = api.username
@@ -115,7 +115,7 @@ const getCookie = name => {
               let css = document.createElement('link')
               css.href = cssSrc
               css.setAttribute('rel', 'stylesheet')
-              document.querySelector('test123').appendChild(css)
+              document.getElementById('test123').appendChild(css)
             })
   
             // game script
@@ -259,11 +259,10 @@ const getCookie = name => {
                 body: JSON.stringify(body)
               }).then(async response => {
                 const api = await response.json();
-                console.log(onlinePlayers)
-                document.querySelector('main').innerHTML = api.output
-                document.querySelector('#playersNames').innerHTML = onlinePlayers
-                document.querySelector('#playersNum').innerHTML = onlinePlayers.length + '/6'
-                document.querySelector('#shop').innerHTML = api.coins + ' | Shop'
+                document.getElementById('main').innerHTML = api.output
+                document.getElementById('playersNames').innerHTML = onlinePlayers
+                document.getElementById('playersNum').innerHTML = onlinePlayers.length + '/6'
+                document.getElementById('shop').innerHTML = api.coins + ' | Shop'
   
                 // map script
   
@@ -350,6 +349,19 @@ const getCookie = name => {
             socket.on('error', (message) => {
               console.log('!!!ERROR!!! ' + message)
               window.location.replace("/?ERRORE");
+            })
+
+            // GLOBAL FIGHT
+
+            socket.on('global-fight', (destination) => {
+              createAlert('A fight has started in ' + destination)
+              document.getElementById(destination).style.background = 'rgba(0, 255, 0, .9)'
+            })
+            
+            // MESSAGE ALERT
+
+            socket.on('message', (message) => {
+              createAlert(message)
             })
 
             // copy Code

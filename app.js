@@ -449,15 +449,22 @@ io.on('connection', socket => {
 
           if (db.get('match').filter({Slot: destination, Code: roomId, Fight:1}).value().length) { // if there are users fighting
             
-            console.log('###')
-            console.log('THEY ARE ALREADY FIGHTING')
-            console.log('###')
+            socket.emit('message', 'You cannot move there, there are players fighting!')
             // send message
           
           } else if(checkFight){ // there are 2 players fighting
             console.log('THERE IS ANOTHER USER IN ' + destination + ' | ' + checkFight.Player)
             io.to(checkFight.SocketId).emit('start-fight', {Other: userInfo.Player, Attacking: 0, Slot: destination}) // he got attacked, so he is defending
             socket.emit('start-fight', {Other: checkFight.Player, Attacking: 1, Slot: destination, Previous: userInfo.Slot}) // you are the attacker
+
+            
+            for (var i in io.sockets.sockets) {
+              if(i != checkFight.SocketId && i != userInfo.SocketId){
+                console.log('manda socket')
+                io.to(i).emit('global-fight', destination)
+              }
+            }
+
 
             db.get('match').find({ // update my user
               SocketId: userSocketId,
@@ -500,17 +507,12 @@ io.on('connection', socket => {
     app.post('/start', (req, res) => {
       const code = roomId
       const player = req.body.player
-      // console.log('############################')
-      console.log('ARRIVATO ' + player)
-      // console.log('############################')
       if (!code || !player) {
         res.send({
           result: false
         })
       }
-      if (db.get('rooms').find({
-          Code: code
-        }).value().Started == 1) {
+      if (db.get('rooms').find({Code: code}).value() && db.get('rooms').find({Code: code}).value().Started == 1) {
         // if it started
         let alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
 
