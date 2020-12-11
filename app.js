@@ -4,15 +4,11 @@ const server = require('http').Server(app)
 const io = require('socket.io')(server)
 const fs = require('fs');
 const randomWords = require('random-words');
-const filter = require('./filter.js')(app);
 const rateLimit = require("express-rate-limit");
 const cron = require('node-cron');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
-const remove = require('lodash').remove;
 const bodyParser = require('body-parser');
-const request = require('request');
-const { Socket } = require('dgram');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
@@ -31,6 +27,8 @@ const limiter = rateLimit({
   max: 10 // limit each IP to 100 requests per windowMs,
 });
 
+app.set('view engine', 'ejs')
+app.use(express.static('public'))
 app.use("/join", limiter);
 app.use("/create", limiter);
 
@@ -44,34 +42,16 @@ db.defaults({
   match: []
 }).write()
 
-// const dbRooms = new Dataput('rooms');
-// dbRooms.headers = ['ID', 'Code', 'Privacy', 'Users', 'Admin', 'Started'];
-// dbRooms.autoIncrement = 'ID'
-
-// const dbUsers = new Dataput('users');
-// dbUsers.headers = ['ID', 'Code', 'Name', 'SocketId'];
-// dbUsers.autoIncrement = 'ID'
-
-
-// dbRooms.insert({
-// 	ID: Dataput.AI, 
-// 	Code: 'provola',
-// 	Privacy: 'Public',
-// 	Users: 0
-// });
-
 // Create Room, if it already exists, create a new one.
 function createRoom() {
   var result = '';
-  var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  var charactersLength = characters.length;
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; // all characters that can be used
+  const charactersLength = characters.length;
   for (var i = 0; i < 5; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
   }
 
-  let check = db.get('rooms').find({
-    Code: result
-  }).value()
+  let check = db.get('rooms').find({Code: result}).value()
   if (!check) { // if it does not exist create the room
     db.get('rooms').push({
       Code: result,
@@ -79,38 +59,32 @@ function createRoom() {
       Players: 0,
       Admin: '',
       Privacy: 'Public',
-      Started: 0
+      Started: 0,
+      Users: []
     }).write()
-
-    console.log('ROOM CREATED ' + result)
-    return result // return the code
+    return result // return the code of the room
   } else { // if it already exists, repeat
     createRoom()
   }
 }
 
-app.set('view engine', 'ejs')
-app.use(express.static('public'))
-
 // Remove empty rooms
 cron.schedule('* * * * *', () => {
-  let query = db.get('rooms').filter({
+  let query = db.get('rooms').filter({ // get all rooms where there are 0 players
     Players: 0
   }).value()
   query.forEach(result => {
-    db.get('rooms').remove({
-      Code: result.Code
-    }).write()
-    console.log('eliminato????')
+    db.get('rooms').remove({Code: result.Code}).write() // remove it
   })
-  // console.log('running a task every minute');
 });
 
 app.get('/', (req, res) => {
   res.render('template')
-  // res.render('spa')
 })
-app.post('/', (req, res) => {
+
+// Homepage Post request
+
+app.post('/', (req, res) => { 
   res.setHeader('Content-Type', 'application/json');
   res.send({
     result: true,
@@ -132,29 +106,21 @@ app.post('/create', (req, res) => {
 
 app.post('/join', (req, res) => {
   console.log('eccomi qua')
-  console.log(req.body)
   if (!req.body.code) {
-    res.send('non hai inserito un codice')
+    res.send('You did not insert a code')
     return
   }
 
   let currentPlayers = db.get('rooms').find({
-    'Code': req.body.code
+    'Code': req.body.code.toUpperCase()
   }).value()
-  if (!currentPlayers) {
-    console.log('ERRORE?')
-    return
-  }
-  console.log('ECCOMI')
-  console.log(currentPlayers)
-  if (!currentPlayers) {
+  if (!currentPlayers) { // if the room does not exist
     res.setHeader('Content-Type', 'application/json');
     res.send({
       result: false,
       error: 'The room does not exist'
     })
   }
-
   if (currentPlayers.Players >= 6) {
     res.setHeader('Content-Type', 'application/json');
     res.send({
@@ -169,38 +135,14 @@ app.post('/join', (req, res) => {
       error: 'The match already started'
     })
   }
-
-  let code = req.body.code.toUpperCase()
-  let query = db.get('rooms').find({
-    "Code": code
-  }).value()
-  if (query) { // if the room exists  
-    if (query.Players >= 6 || query == undefined) { // if the room is full
-      res.setHeader('Content-Type', 'application/json');
-      res.send({
-        result: false,
-        error: 'The room does not exist'
-      })
-    } else {
-      let username = randomWords() + Math.floor(Math.random() * 10000); // the username of the new user
-
-      // res.render('room', { roomCode: code, username: username})
-      res.setHeader('Content-Type', 'application/json');
-      res.send({
-        result: true,
-        roomId: code,
-        username: username,
-        output: fs.readFileSync('./views/room.ejs').toString(),
-        css: ['/css/map.css']
-      })
-    }
-  } else {
-    res.setHeader('Content-Type', 'application/json');
-    res.send({
-      result: false,
-      error: 'The room does not exist'
-    })
-  }
+  res.setHeader('Content-Type', 'application/json');
+  res.send({
+    result: true,
+    roomId: req.body.code.toUpperCase(),
+    username: randomWords() + Math.floor(Math.random() * 10000), // the username of the new user
+    output: fs.readFileSync('./views/room.ejs').toString(),
+    css: ['/css/map.css']
+  })
 
 
 })
@@ -209,19 +151,14 @@ app.post('/join', (req, res) => {
 
 io.on('connection', socket => {
   socket.on('join-room', (roomId, userId) => { // when user joins
-    let query = db.get('rooms').find({
-      Code: roomId,
-      Started: 0
-    }).value()
-    console.log(query)
+    const query = db.get('rooms').find({Code: roomId, Started: 0}).value()
     if (!query) {
-      console.log('errore')
+      console.log('The room does not exist')
       return
     }
-    if (query.Players == 0) { // if there are no users, so you are the first
-      console.log('the admin is: ' + userId)
+    if (query.Players == 0) { // if there are no users, you are the first
       socket.emit("you-are-the-admin");
-      // if you created the match you are the admin
+      // set the admin as your username
       db.get('rooms').find({
         'Code': roomId
       }).assign({
@@ -237,32 +174,23 @@ io.on('connection', socket => {
       Players: ActualPlayers
     }).write();
 
-    // add the user to the list of users in the room
-    db.get('users').push({
-      'Code': roomId,
+    let actualUsers = query.Users
+    actualUsers.push({
       'Name': userId,
-      'SocketId': ''
-    }).write()
-
-    console.log('sono arrivato qua')
-
-    // Store socket id
-    db.get('users').find({
-      'Code': roomId,
-      'Name': userId
-    }).assign({
       'SocketId': socket.id
+    })
+    db.get('rooms').find({
+      'Code': roomId
+    }).assign({
+      Users: actualUsers
     }).write();
 
     // get the list of the users
     let usersNumber = db.get('rooms').find({
       "Code": roomId
     }).value()
-    let usersNameList = db.get('users').filter({
-      Code: roomId
-    }).value()
 
-    usersNameList = usersNameList.map(a => a.Name);
+    usersNameList = usersNumber.Users.map(a => a.Name);
     let usersList = {
       number: usersNumber.Players,
       names: usersNameList
@@ -276,42 +204,38 @@ io.on('connection', socket => {
 
     console.log('SOCKETID: ' + socket.id)
 
-    let adminQuery = db.get('users').find({
-      "Code": roomId
-    }).value()
-    if (adminQuery.Admin == userId) { // if the user is the admin
-      console.log('messaggio mandato')
-      socket.emit("you-are-the-admin");
-    }
-
     socket.join(roomId)
 
     socket.on('disconnect', () => {
       socket.to(roomId).broadcast.emit('user-disconnected', userId)
+      socket.to(roomId).broadcast.emit('message', userId + ' has left')
       console.log(userId + ' DISCONNECTED FROM ' + roomId)
 
-      if(db.get('rooms').find({Code: roomId}).value().Started){ // if the match started
+      if (db.get('rooms').find({
+          Code: roomId
+        }).value().Started) { // if the match started
 
       }
 
-      // remove the user from the table of the users 
-      db.get('users').remove({
-        Code: roomId,
-        Name: userId
-      }).write()
+      // remove the user from the list of users
+      let actualUsers = db.get('rooms').find({Code: roomId}).value().Users
+      actualUsers = actualUsers.filter(item => item.Name !== userId)
+      db.get('rooms').find({
+        'Code': roomId
+      }).assign({
+        Users: actualUsers
+      }).write();
 
       // Remove 1 user from the total of online users
-      let removePlayerQuery = db.get('rooms').find({
-        'Code': roomId
-      }).value()
+      let removePlayerQuery = db.get('rooms').find({'Code': roomId}).value()
       console.log('REMOVE')
-      console.log(removePlayerQuery)
       let updatedPlayers = removePlayerQuery.Players - 1
       db.get('rooms').find({
         'Code': roomId
       }).assign({
         'Players': updatedPlayers
       }).write();
+
       // if there are no more users in the room, delete it
       if (updatedPlayers == 0) {
         db.get('rooms').remove({
@@ -322,7 +246,7 @@ io.on('connection', socket => {
         let checkQuery = db.get('rooms').find({
           'Code': roomId
         }).value()
-        if (checkQuery.Started) { // if the match started
+        if (checkQuery.Started) { // if the match has started
           if (checkQuery.Admin == userId) { // if the user who left is the admin, remove it
             db.get('rooms').find({
               'Code': roomId
@@ -336,39 +260,34 @@ io.on('connection', socket => {
             'Player': userId
           }).write()
 
-          if(db.get('match').filter({Code: roomId}).value().length == 1){ // if there is only 1 user left, he wins
+          if (db.get('match').filter({
+              Code: roomId
+            }).value().length == 1) { // if there is only 1 user left, he wins
             console.log('RIMASTO SOLO UN UTENTE')
-            console.log(db.get('match').find({Code: roomId}).value())
+            console.log(db.get('match').find({
+              Code: roomId
+            }).value())
             socket.to(roomId).emit('match-ended')
           }
 
 
 
-        } else { // if it didn't start
+        } else { // if it hasn't started
           let checkQuery1 = db.get('rooms').find({
             'Code': roomId
           }).value()
-          if (checkQuery1.Admin == userId) { // if the user who left is the admin, remove it
+          if (checkQuery1.Admin == userId) { // if the user who has left is the admin, remove it
             // get the list of the users
-            let updatedUsersNumber = db.get('rooms').find({
-              "Code": roomId
-            }).value()
-            let updatedUsersNameList = db.get('users').filter({
-              "Code": roomId
-            }).value()[0].Name
 
-            let newAdminSocket = db.get('users').find({
-              Name: updatedUsersNameList,
-              Code: roomId
-            }).value().SocketId
+            let newAdmin = db.get('rooms').find({'Code': roomId}).value().Users[0]
 
             db.get('rooms').find({
               'Code': roomId
             }).assign({
-              'Admin': updatedUsersNameList
+              'Admin': newAdmin.Name
             }).write();
 
-            io.to(newAdminSocket).emit('you-are-the-admin')
+            io.to(newAdmin.SocketId).emit('you-are-the-admin')
           }
         }
       }
@@ -376,7 +295,9 @@ io.on('connection', socket => {
     })
     socket.on('start-match', () => {
       console.log('Iniziamo MATCH!')
-      let currentAdmin = db.get('rooms').find({Code: roomId}).value().Admin // get the actual admin
+      let currentAdmin = db.get('rooms').find({
+        Code: roomId
+      }).value().Admin // get the actual admin
       if (currentAdmin == userId) {
         let currentPlayers = db.get('rooms').find({
           Code: roomId
@@ -395,7 +316,7 @@ io.on('connection', socket => {
           }).write(); // REMOVE THE ADMIN
           io.sockets.in(roomId).emit('match-started', roomId)
         } else {
-          socket.emit('cannot-start')
+          socket.emit('message', 'There are not enough players to start')
         }
       }
     })
@@ -407,15 +328,11 @@ io.on('connection', socket => {
       }).value().Admin
       if (currentAdmin == userId) { // if i am the admin
         if (player != userId) {
-          let playerToKick = db.get('users').find({
-            Code: roomId,
-            Name: player
-          }).value()
+          const playerToKick = db.get('rooms').find({Code: roomId}).value().Users.filter(item => item.Name == player)[0]
           console.log(playerToKick)
           if (playerToKick) { // if the player is in the room
             io.to(playerToKick.SocketId).emit('you-got-kicked')
-            console.log('he got kicked')
-            socket.emit('you-kicked-him', player)
+            socket.emit('message', 'You have kicked ' + player)
           }
         }
       }
@@ -431,7 +348,6 @@ io.on('connection', socket => {
         SocketId: userSocketId,
         Code: roomId
       }).value()
-      console.log('POSIZIONE: ' + userInfo.Slot + ' DESTINAZIONE: ' + destination)
       const clearance = (a, b) => {
         const letters = [...'abcdefghijklmnopqrstuvwxyz'];
         a = [letters.indexOf(a.substring(0, 1).toLowerCase()), Number(a.substring(1))];
@@ -439,27 +355,45 @@ io.on('connection', socket => {
         return Math.abs(a[0] - b[0]) <= 1 && Math.abs(a[1] - b[1]) <= 1
       }
       if (clearance(userInfo.Slot, destination) && userInfo.Slot != destination) {
-        console.log('ATTACCATO')
         if (userInfo.Movement && userInfo.Fight == 0) { // if you have a movement available
-          console.log('YOU HAVE A MOVEMENT')
-          const checkFight = db.get('match').find({Slot: destination,Code: roomId}).value()
+          const checkFight = db.get('match').find({
+            Slot: destination,
+            Code: roomId
+          }).value()
 
-          console.log(db.get('match').filter({Slot: destination, Code: roomId, Fight:1}).value().length)
+          console.log(db.get('match').filter({
+            Slot: destination,
+            Code: roomId,
+            Fight: 1
+          }).value().length)
 
 
-          if (db.get('match').filter({Slot: destination, Code: roomId, Fight:1}).value().length) { // if there are users fighting
-            
+          if (db.get('match').filter({
+              Slot: destination,
+              Code: roomId,
+              Fight: 1
+            }).value().length) { // if there are users fighting
+
             socket.emit('message', 'You cannot move there, there are players fighting!')
             // send message
-          
-          } else if(checkFight){ // there are 2 players fighting
-            console.log('THERE IS ANOTHER USER IN ' + destination + ' | ' + checkFight.Player)
-            io.to(checkFight.SocketId).emit('start-fight', {Other: userInfo.Player, Attacking: 0, Slot: destination}) // he got attacked, so he is defending
-            socket.emit('start-fight', {Other: checkFight.Player, Attacking: 1, Slot: destination, Previous: userInfo.Slot}) // you are the attacker
 
-            
+          } else if (checkFight) { // there are 2 players fighting
+            console.log('THERE IS ANOTHER USER IN ' + destination + ' | ' + checkFight.Player)
+            io.to(checkFight.SocketId).emit('start-fight', {
+              Other: userInfo.Player,
+              Attacking: 0,
+              Slot: destination
+            }) // he got attacked, so he is defending
+            socket.emit('start-fight', {
+              Other: checkFight.Player,
+              Attacking: 1,
+              Slot: destination,
+              Previous: userInfo.Slot
+            }) // you are the attacker
+
+
             for (var i in io.sockets.sockets) {
-              if(i != checkFight.SocketId && i != userInfo.SocketId){
+              if (i != checkFight.SocketId && i != userInfo.SocketId) {
                 console.log('manda socket')
                 io.to(i).emit('global-fight', destination)
               }
@@ -480,7 +414,7 @@ io.on('connection', socket => {
               Code: roomId
             }).assign({
               Fight: 1
-            }).write()            
+            }).write()
 
           } else {
             db.get('match').find({
@@ -512,7 +446,11 @@ io.on('connection', socket => {
           result: false
         })
       }
-      if (db.get('rooms').find({Code: code}).value() && db.get('rooms').find({Code: code}).value().Started == 1) {
+      if (db.get('rooms').find({
+          Code: code
+        }).value() && db.get('rooms').find({
+          Code: code
+        }).value().Started == 1) {
         // if it started
         let alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
 
@@ -539,10 +477,8 @@ io.on('connection', socket => {
           Attack: 50,
           Defense: 80
         }]
-        const SocketId = db.get('users').find({
-          Code: code,
-          Name: player
-        }).value().SocketId
+        const SocketId = db.get('rooms').find({Code: code}).value().Users.filter(item => item.Name == player)[0].SocketId
+
         db.get('match').push({
           Code: code,
           Player: player,
@@ -566,30 +502,34 @@ io.on('connection', socket => {
         });
 
         const funzione = () => {
-          if(db.get('match').find({Code: code, Player: player}).value()){
+          if (db.get('match').find({
+              Code: code,
+              Player: player
+            }).value()) {
             console.log('30 sec ' + player)
-            console.log(code, player)            
-                const actualCoins = db.get('match').find({
-                    Code: code,
-                    Player: player
-                }).value().Coins
+            console.log(code, player)
+            const actualCoins = db.get('match').find({
+              Code: code,
+              Player: player
+            }).value().Coins
 
-                db.get('match').find({
-                    Code: code,
-                    Player: player
-                }).assign({
-                    Coins: actualCoins + 5,
-                    Movement: 1
-                }).write()
+            db.get('match').find({
+              Code: code,
+              Player: player
+            }).assign({
+              Coins: actualCoins + 5,
+              Movement: 1
+            }).write()
 
-                timer(30000).then(funzione);
-                io.to(SocketId).emit('update-coins', {Coins: actualCoins + 5})
+            timer(30000).then(funzione);
+            io.to(SocketId).emit('update-coins', {
+              Coins: actualCoins + 5
+            })
           } else {
             socket.emit('error', 'ciaone questo errore')
             return
           }
         }
-        funzione();
 
         res.setHeader('Content-Type', 'application/json');
         res.send({
@@ -599,6 +539,7 @@ io.on('connection', socket => {
           troops: troops
         })
 
+        funzione();
 
       } else {
         res.send({

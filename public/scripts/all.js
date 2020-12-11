@@ -1,3 +1,5 @@
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
 // THEME SWITCH
 const getCookie = name => {
     const string = RegExp(name + "=[^;]+").exec(document.cookie);
@@ -218,12 +220,6 @@ const getCookie = name => {
   
             })
   
-            // TODO ALERTS
-            
-            socket.on('cannot-start', (roomId) => {
-              createAlert('There are not enough players!')
-            })
-  
             // When you join
 
             socket.on('you-joined', usersList => {
@@ -236,9 +232,8 @@ const getCookie = name => {
             // Kick
 
             socket.on('you-got-kicked', () => {
-              console.log('SONO STATO KICKATO :(')
-              window.location.replace("/");
               leave()
+              alert('You have been kicked from the match')
             })
             socket.on('you-kicked-him', (player) => {
               createAlert('You kicked ' + player, 'success')
@@ -260,6 +255,7 @@ const getCookie = name => {
               }).then(async response => {
                 const api = await response.json();
                 document.getElementById('main').innerHTML = api.output
+
                 document.getElementById('playersNames').innerHTML = onlinePlayers
                 document.getElementById('playersNum').innerHTML = onlinePlayers.length + '/6'
                 document.getElementById('shop').innerHTML = api.coins + ' | Shop'
@@ -309,6 +305,7 @@ const getCookie = name => {
                   troopsDom.appendChild(troopDom)
                 })
               })
+
 
               socket.on('you-moved', (data) => {
                 console.log(data)
