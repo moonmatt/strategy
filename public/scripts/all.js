@@ -1,3 +1,4 @@
+let admin = false
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 // THEME SWITCH
@@ -165,8 +166,14 @@ const getCookie = name => {
                 node.appendChild(userCode)
                 if (player != username) { // if it is NOT me
                   let kickButton = document.createElement('div')
-                  kickButton.className += 'join pointer'
+                  kickButton.className += 'join pointer kick'
                   kickButton.innerHTML = 'KICK'
+                  kickButton.id = 'kick'
+
+                  if(!admin) {
+                    kickButton.style.display = 'none'
+                  }
+
                   kickButton.onclick = function() {
                     console.log('kick = ' + player)
                     socket.emit('kick-player', player)
@@ -208,11 +215,18 @@ const getCookie = name => {
             // You're the admin
 
             socket.on('you-are-the-admin', () => {
+              admin = true
               createAlert('You are the Admin!', 'success')
               document.getElementById('adminTitle').innerHTML = 'You are the Admin'
               let startButton = document.getElementById('start')
               startButton.style.display = 'block'
-  
+              const kickButtons = document.querySelectorAll('[id=kick]');
+              if(kickButtons){
+                kickButtons.forEach(kickButton => {
+                  kickButton.style.display = 'block'
+                })
+              }
+              console.log(kickButtons)
               startButton.onclick = function() {
                 console.log('ECCOMI INIZIA IL MATCH')
                 socket.emit('start-match')
@@ -253,9 +267,16 @@ const getCookie = name => {
                 },
                 body: JSON.stringify(body)
               }).then(async response => {
-                const api = await response.json();
-                document.getElementById('main').innerHTML = api.output
 
+                const api = await response.json();
+                console.log(api.result)
+                if(!api.result){
+                  console.log('ERRORE!!!!')
+                  console.log(api.message)
+                  leave()
+                  return
+                }
+                document.getElementById('main').innerHTML = api.output
                 document.getElementById('playersNames').innerHTML = onlinePlayers
                 document.getElementById('playersNum').innerHTML = onlinePlayers.length + '/6'
                 document.getElementById('shop').innerHTML = api.coins + ' | Shop'
@@ -312,6 +333,10 @@ const getCookie = name => {
                 document.getElementById(data.actualSlot).style.background = 'none'
                 document.getElementById(data.destination).style.background = 'rgba(255, 0, 0, .9)'
                 console.log('you MOVED from: ' + data.actualSlot + ' TO: ' + data.destination)
+                document.getElementById('movement').style.background = '#7f8c8d'
+                // document.getElementById('movement').style.color = '#fff'
+                document.getElementById('movement').innerHTML = 'You cannot Move!'
+
               })
 
               socket.on('start-fight', (data) => {
@@ -330,6 +355,8 @@ const getCookie = name => {
               socket.on('update-coins', (data) => {
                 console.log('UPDATE COINS')
                 document.getElementById('shop').innerHTML = data.Coins + ' | Shop'
+                document.getElementById('movement').style.background = 'var(--secondary)'
+                document.getElementById('movement').innerHTML = 'You can Move!'
               })
 
 

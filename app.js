@@ -430,7 +430,7 @@ io.on('connection', socket => {
             })
           }
         } else {
-          console.log('you dont have a movement or you are in a fight')
+          socket.emit('message', 'You cannot move right now')
         }
       }
     })
@@ -439,19 +439,16 @@ io.on('connection', socket => {
     // GAME
 
     app.post('/start', (req, res) => {
-      const code = roomId
+      const code = req.body.code
       const player = req.body.player
       if (!code || !player) {
         res.send({
-          result: false
+          result: false,
+          message: 'THE CODE OR THE PLAYER IS NOT SET'
         })
       }
-      if (db.get('rooms').find({
-          Code: code
-        }).value() && db.get('rooms').find({
-          Code: code
-        }).value().Started == 1) {
-        // if it started
+      if (db.get('rooms').find({Code: code}).value()) {
+
         let alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
 
         function getRandomInt(min, max) {
@@ -477,6 +474,7 @@ io.on('connection', socket => {
           Attack: 50,
           Defense: 80
         }]
+        console.log('SOCKET CODE ' + code)
         const SocketId = db.get('rooms').find({Code: code}).value().Users.filter(item => item.Name == player)[0].SocketId
 
         db.get('match').push({
@@ -490,7 +488,6 @@ io.on('connection', socket => {
           Fight: 0
         }).write()
 
-        console.log('OK CI SIAMO')
         const timer = ms => new Promise(resolve => {
           const start = Date.now();
           const delay = setInterval(() => {
@@ -542,10 +539,13 @@ io.on('connection', socket => {
         funzione();
 
       } else {
+        res.setHeader('Content-Type', 'application/json');
         res.send({
-          result: false
+          result: false,
+          message: 'The match did not start'
         })
       }
+
     })
 
     // END GAME   

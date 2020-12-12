@@ -193,7 +193,7 @@ i.gg-loadbar {
     padding: 20px 100px 20px 100px;
     margin-right: auto;
     margin-left: auto;
-    color: var(--light);
+    color: #fff;
 }
 /* Alerts */
 #alerts {
@@ -201,7 +201,7 @@ i.gg-loadbar {
 }
 .alert {
     background-color: #2ecc71;
-    color: var(--light);
+    color: #fff;
     padding: 20px 25px 20px 25px;
     font-size: var(--font-medium);
     box-shadow:0px 8px 24px var(--shadow);
@@ -257,8 +257,8 @@ i.gg-loadbar {
 /* PlayersNum */
 .playersNum {
     position: absolute;
-    bottom: 7px;
-    left: 7px;
+    bottom: 10px;
+    left: 10px;
     background-color: var(--panel);
     box-shadow:0px 8px 24px var(--shadow);
     text-align: center;
