@@ -43,6 +43,8 @@ const getCookie = name => {
   }).then(async response => {
     const api = await response.json();
   
+    
+
     if (api.result) {
       document.getElementById('main').innerHTML = api.output
       console.log(api.matches)
@@ -78,7 +80,9 @@ const getCookie = name => {
           if (api.result) {
             join(api.roomId)
           }
-        });
+        }).catch(function() {
+          console.log("erroreee");
+      });
       }
   
       async function join(externalCode) {
@@ -409,7 +413,9 @@ const getCookie = name => {
             console.log(api.error)
           }
   
-        })
+        }).catch(function() {
+          console.log("error");
+      });
       }
   
       document.getElementById('clickCreate').onclick = create

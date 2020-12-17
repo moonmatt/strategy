@@ -9,6 +9,7 @@ const cron = require('node-cron');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
 const bodyParser = require('body-parser');
+var queue = require('express-queue');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
@@ -21,7 +22,10 @@ const userAgentProtection = require('block-useragent')(['*'], {
   attack: true
 });
 
-// Api Anti Spam 
+// Using queue middleware
+// app.use(queue({ activeLimit: 2, queuedLimit: -1 }));
+
+// // Api Anti Spam 
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 10 // limit each IP to 100 requests per windowMs,
@@ -104,7 +108,8 @@ app.post('/create', (req, res) => {
   })
 });
 
-app.post('/join', (req, res) => {
+app.post('/join', async (req, res) => {
+  const username = randomWords() + Math.floor(Math.random() * 10000)
   console.log('eccomi qua')
   if (!req.body.code) {
     res.send('You did not insert a code')
@@ -114,12 +119,14 @@ app.post('/join', (req, res) => {
   let currentPlayers = db.get('rooms').find({
     'Code': req.body.code.toUpperCase()
   }).value()
+  console.log(currentPlayers)
   if (!currentPlayers) { // if the room does not exist
     res.setHeader('Content-Type', 'application/json');
     res.send({
       result: false,
       error: 'The room does not exist'
     })
+    return
   }
   if (currentPlayers.Players >= 6) {
     res.setHeader('Content-Type', 'application/json');
@@ -127,24 +134,42 @@ app.post('/join', (req, res) => {
       result: false,
       error: 'The match is full'
     })
-  }
-  if (currentPlayers.Started == 1) {
+  } else {
+    if (currentPlayers.Started == 1) {
+      res.setHeader('Content-Type', 'application/json');
+      res.send({
+        result: false,
+        error: 'The match already started'
+      })
+    }
+
+    // Add the user to the list
+    let ActualPlayers = db.get('rooms').find({Code: req.body.code.toUpperCase(), Started: 0}).value().Players + 1
+    db.get('rooms').find({
+      'Code': req.body.code.toUpperCase()
+    }).assign({
+      Players: ActualPlayers
+    }).write();
+
+    // CREATE MY USER WITHOUT THE SOCKET ID 
+
+    let actualUsers = db.get('rooms').find({Code: req.body.code.toUpperCase(), Started: 0}).value().Users
+    actualUsers.push({
+      'Name': username,
+      'SocketId': '',
+      'Verified': 0
+    })
+
     res.setHeader('Content-Type', 'application/json');
     res.send({
-      result: false,
-      error: 'The match already started'
+      result: true,
+      roomId: req.body.code.toUpperCase(),
+      username: username, // the username of the new user
+      output: fs.readFileSync('./views/room.ejs').toString(),
+      css: ['/css/map.css']
     })
+
   }
-  res.setHeader('Content-Type', 'application/json');
-  res.send({
-    result: true,
-    roomId: req.body.code.toUpperCase(),
-    username: randomWords() + Math.floor(Math.random() * 10000), // the username of the new user
-    output: fs.readFileSync('./views/room.ejs').toString(),
-    css: ['/css/map.css']
-  })
-
-
 })
 
 // Socket
@@ -156,34 +181,32 @@ io.on('connection', socket => {
       console.log('The room does not exist')
       return
     }
-    if (query.Players == 0) { // if there are no users, you are the first
-      socket.emit("you-are-the-admin");
+
+    // si connette per la prima volta
+    const getIfVerifiedName = db.get('rooms').find({Code: roomId}).get('Users').find({Name: userId, Verified: 0}).value()
+    // se esiste nel db ed e la prima volta, fallo entrare e metti verified
+    if(getIfVerifiedName){
+      db.get('rooms').find({Code: roomId}).get('Users').find({Name: userId, Verified: 0}).assign({
+        SocketId: socket.id,
+        Verified: 1
+      }).write()
+    } else {
+      console.log('ERRORE NON PRESENTE NEL DB')
+      return
+    }
+
+    if (query.Players == 1) { // if there are no users, you are the first
+    
       // set the admin as your username
       db.get('rooms').find({
         'Code': roomId
       }).assign({
         'Admin': userId
       }).write();
+
+      socket.emit('you-are-the-admin')
+
     }
-
-    // Add the user to the list
-    let ActualPlayers = query.Players + 1
-    db.get('rooms').find({
-      'Code': roomId
-    }).assign({
-      Players: ActualPlayers
-    }).write();
-
-    let actualUsers = query.Users
-    actualUsers.push({
-      'Name': userId,
-      'SocketId': socket.id
-    })
-    db.get('rooms').find({
-      'Code': roomId
-    }).assign({
-      Users: actualUsers
-    }).write();
 
     // get the list of the users
     let usersNumber = db.get('rooms').find({
@@ -198,8 +221,6 @@ io.on('connection', socket => {
 
     socket.to(roomId).broadcast.emit('user-connected', userId, usersList)
 
-    console.log(usersList)
-
     socket.emit('you-joined', usersList)
 
     console.log('SOCKETID: ' + socket.id)
@@ -210,12 +231,6 @@ io.on('connection', socket => {
       socket.to(roomId).broadcast.emit('user-disconnected', userId)
       socket.to(roomId).broadcast.emit('message', userId + ' has left')
       console.log(userId + ' DISCONNECTED FROM ' + roomId)
-
-      if (db.get('rooms').find({
-          Code: roomId
-        }).value().Started) { // if the match started
-
-      }
 
       // remove the user from the list of users
       let actualUsers = db.get('rooms').find({Code: roomId}).value().Users
@@ -363,31 +378,33 @@ io.on('connection', socket => {
             console.log('there are users fighting there')
 
           } else if (checkFight) { // there are 2 players fighting
-            console.log('THERE IS ANOTHER USER IN ' + destination + ' | ' + checkFight.Player)
+            console.log('THERE IS ANOTHER USER IN ' + destination + ' | ' + checkFight.Name)
             io.to(checkFight.SocketId).emit('start-fight', {
-              Other: userInfo.Player,
+              Other: userInfo.Name,
               Attacking: 0,
               Slot: destination
             }) // he got attacked, so he is defending
             socket.emit('start-fight', {
-              Other: checkFight.Player,
+              Other: checkFight.Name,
               Attacking: 1,
               Slot: destination,
               Previous: userInfo.Slot
             }) // you are the attacker
 
-
-            // for (var i in io.sockets.sockets) {
-            //   if (i != checkFight.SocketId && i != userInfo.SocketId) {
-            //     console.log('manda socket')
-            //     io.to(i).emit('global-fight', destination)
-            //   }
-            // }
-
             db.get('match').find({Code: roomId}).get('Users').find({SocketId: userSocketId}).assign({Slot: destination, Movement: 0, Fight: 1}).write()
             // update my user
             // update other user
             db.get('match').find({Code: roomId}).get('Users').find({SocketId: checkFight.SocketId}).assign({Fight: 1}).write()
+
+            // tell global fight 
+
+            const allUsers = db.get('match').find({Code: roomId}).get('Users').value()
+            console.log(allUsers)
+            allUsers.forEach(singleUser => {
+              if(singleUser.Name != userInfo.Name && singleUser.Name != checkFight.Name){
+                io.to(singleUser.SocketId).emit('global-fight', destination)
+              }
+            })
 
           } else {
             db.get('match').find({Code: roomId}).get('Users').find({SocketId: userSocketId}).assign({Slot: destination, Movement: 0}).write()
@@ -425,27 +442,40 @@ io.on('connection', socket => {
           return Math.floor(Math.random() * (max - min)) + min; //Il max è escluso e il min è incluso
         }
 
+        var ID = function () {
+          return '_' + Math.random().toString(36).substr(2, 9);
+        };
+
+
         const initialSlot = alphabet[getRandomInt(0, 9)] + '' + getRandomInt(0, 19)
         const troops = [{
+          Id: ID,
+          Position: 0,
           Type: 'Infantry',
           Attack: 50,
           Defense: 80
         }, {
+          Id: ID,
+          Position: 1,
           Type: 'Infantry',
           Attack: 50,
           Defense: 80
         }, {
+          Id: ID,
+          Position: 2,
           Type: 'Infantry',
           Attack: 50,
           Defense: 80
         }, {
+          Id: ID,
+          Position: 3,
           Type: 'Infantry',
           Attack: 50,
           Defense: 80
         }]
-        const SocketId = db.get('rooms').find({Code: code}).value().Users.filter(item => item.Name == player)[0].SocketId
 
-        // filter(item => item.Name == player)[0]
+        const SocketId = db.get('rooms').find({Code: code}).get('Users').find({Name: player}).value().SocketId
+
         // push the user infos
 
         let users = db.get('match').find({Code: code}).value().Users
