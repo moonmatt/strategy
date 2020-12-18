@@ -1,0 +1,25 @@
+{
+  "extends": "airbnb/base",
+  "ecmaFeatures": {
+    "blockBindings": true,
+    "modules": false,
+    "jsx": false
+  },
+  "globals": {
+    "log": true
+  },
+  "rules": {
+    "strict": [
+      2,
+      "global"
+    ],
+    "comma-dangle": 0,
+    "space-after-keywords": 0,
+    "no-use-before-define": 0,
+    "space-infix-ops": 0,
+    "func-names": 0,
+    "no-shadow": 0,
+    "brace-style": 0,
+    "no-param-reassign": 0
+  }
+}

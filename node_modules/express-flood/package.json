@@ -1,0 +1,30 @@
+{
+  "name": "express-flood",
+  "version": "1.0.0",
+  "description": "Package for managing API - filter requests for avoid spammers and robots",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "simone-byte",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simone-byte/express-flood.git"
+  },
+  "keywords": [
+    "spam",
+    "flood",
+    "express",
+    "middleware",
+    "api",
+    "ip"
+  ],
+  "bugs": {
+    "url": "https://github.com/simone-byte/express-flood/issues"
+  },
+  "homepage": "https://github.com/simone-byte/express-flood#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
